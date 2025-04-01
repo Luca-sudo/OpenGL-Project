@@ -8,18 +8,26 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 }
 
 int main() {
-  glfwInit();
+
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-  GLFWwindow *window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
-  if (window == NULL) {
-    printf("Failed to create GLFW window");
+  if (!glfwInit()) {
+    printf("GLFW initialization failed\n");
+    return -1;
+  }
+
+  GLFWwindow *window = glfwCreateWindow(800, 600, "Test", NULL, NULL);
+  if (!window) {
+    const char *errorDesc;
+    int errorCode = glfwGetError(&errorDesc);
+    printf("GLFW window creation failed (Error %d): %s\n", errorCode, errorDesc ? errorDesc : "Unknown error");
     glfwTerminate();
     return -1;
   }
+
   glfwMakeContextCurrent(window);
 
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {

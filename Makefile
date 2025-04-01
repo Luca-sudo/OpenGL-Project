@@ -8,4 +8,4 @@ CC = gcc
 
 project: src/glad.c main.c
 	mkdir -p $(OUT_DIR)
-	$(CC) $(LIBRARIES) -I$(INCLUDES) $^ -o $(OUT_DIR)/project
+	$(CC) -I$(INCLUDES) $^ -o $(OUT_DIR)/project $(LIBRARIES)
