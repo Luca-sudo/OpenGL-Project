@@ -23,8 +23,10 @@
             libGL
             glew
             glfw
+            bear
 
             glxinfo
+            python313Packages.glad
 
             # Build tools (customize as needed)
             gnumake
