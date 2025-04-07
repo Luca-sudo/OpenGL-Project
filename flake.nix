@@ -13,7 +13,6 @@
       in {
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            # OpenGL dependencies
             xorg.libX11
             xorg.libXrandr
             xorg.libXinerama
@@ -28,8 +27,8 @@
             glxinfo
             python313Packages.glad
 
-            # Build tools (customize as needed)
             gnumake
+            gdb
             pkg-config
           ];
 
