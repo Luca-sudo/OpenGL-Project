@@ -35,6 +35,7 @@
 
           shellHook = ''
             export LD_LIBRARY_PATH="/run/opengl-driver/lib:/run/opengl-driver-32/lib:$LD_LIBRARY_PATH"
+            export NIX_CFLAGS_COMPILE="-isystem $PWD/include $NIX_CFLAGS_COMPILE"
           '';
         };
       }
