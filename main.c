@@ -11,6 +11,12 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
 float TRIANGLE_VERTICES[] = {-0.5f, -0.5f, 0.0f, 0.5f, -0.5f,
                              0.0f,  0.0f,  0.5f, 0.0f};
 
+float TRIANGLE_COLORS[] = {
+    1.0f, 0.0f, 0.0f, // red
+    0.0f, 1.0f, 0.0f, // green
+    0.0f, 0.0f, 1.0f  // blue
+};
+
 int main() {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -63,17 +69,24 @@ int main() {
   glDeleteShader(vertexShader);
   glDeleteShader(fragShader);
 
-  unsigned int VAO, VBO;
+  unsigned int VAO, positions, colors;
   glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &VBO);
+  glGenBuffers(1, &positions);
+  glGenBuffers(1, &colors);
 
   // Configure VAO
   glBindVertexArray(VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, VBO);
+  glBindBuffer(GL_ARRAY_BUFFER, positions);
   glBufferData(GL_ARRAY_BUFFER, sizeof(TRIANGLE_VERTICES), TRIANGLE_VERTICES,
                GL_STATIC_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
+
+  glBindBuffer(GL_ARRAY_BUFFER, colors);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(TRIANGLE_COLORS), TRIANGLE_COLORS,
+               GL_STATIC_DRAW);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(1);
 
   while (!glfwWindowShouldClose(window)) {
     glfwSwapBuffers(window);
