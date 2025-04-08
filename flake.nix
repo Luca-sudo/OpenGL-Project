@@ -30,6 +30,9 @@
             gnumake
             gdb
             pkg-config
+
+            assimp
+            zlib
           ];
 
           shellHook = ''
