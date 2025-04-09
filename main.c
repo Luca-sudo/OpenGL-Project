@@ -1,6 +1,6 @@
 #include "include/shader.h"
 #include <glad/glad.h>
-
+#include <cglm/cglm.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 
@@ -17,6 +17,9 @@ float TRIANGLE_COLORS[] = {
     0.0f, 0.0f, 1.0f  // blue
 };
 
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
 int main() {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -29,7 +32,7 @@ int main() {
     return -1;
   }
 
-  GLFWwindow *window = glfwCreateWindow(800, 600, "Test", NULL, NULL);
+  GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Test", NULL, NULL);
   if (!window) {
     const char *errorDesc;
     int errorCode = glfwGetError(&errorDesc);
@@ -92,7 +95,33 @@ int main() {
     glfwSwapBuffers(window);
     glfwPollEvents();
 
+    // create transformations
+    mat4 model, view, projection;
+
+    glm_mat4_identity(model);
+    glm_mat4_identity(view);
+    glm_mat4_identity(projection);
+
+    // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
+    glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
+
+    // view = translate(view, vec3(0.0, 0.0, -3.0));
+    glm_translate(view, (vec3){0.0f, 0.0f, -3.0f});
+
+    // projection = perspective(radians(45.0f), aspect, near, far)
+    glm_perspective(glm_rad(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f, projection);
+
     glUseProgram(shaderProgram);
+
+    // set uniforms
+    unsigned int modelLoc  = glGetUniformLocation(shaderProgram, "model");
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+    unsigned int viewLoc  = glGetUniformLocation(shaderProgram, "view");
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+    unsigned int projectionLoc  = glGetUniformLocation(shaderProgram, "projection");
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
+    
+
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 3);
   }

@@ -1,5 +1,5 @@
 INCLUDES = include
-LIBRARIES = -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl
+LIBRARIES = -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl -lm
 FLAGS = -g
 
 OUT_DIR = build
