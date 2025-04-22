@@ -1,3 +1,5 @@
+#include "assimp/material.h"
+#include "assimp/mesh.h"
 #include "assimp/vector3.h"
 #include "bits/types/struct_timeval.h"
 #include "include/shader.h"
@@ -17,6 +19,44 @@
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
+}
+
+void extract_indices(unsigned int *indices, unsigned int *indexOffset,
+                     struct aiVector3D *vertices, unsigned int *vertexOffset,
+                     struct aiNode *node, const struct aiScene *scene) {
+  for (int meshIndex = 0; meshIndex < node->mNumMeshes; meshIndex++) {
+    unsigned int meshId = node->mMeshes[meshIndex];
+    unsigned int materialId = scene->mMeshes[meshId]->mMaterialIndex;
+    for (int faceIdx = 0; faceIdx < scene->mMeshes[meshId]->mNumFaces;
+         faceIdx++) {
+      struct aiFace face = scene->mMeshes[meshId]->mFaces[faceIdx];
+      for (int i = 0; i < face.mNumIndices; i++) {
+        indices[*indexOffset + i] = face.mIndices[i] + (*vertexOffset);
+      }
+      *indexOffset += face.mNumIndices;
+    }
+
+    for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
+         vertexIdx++) {
+      vertices[*vertexOffset + vertexIdx] =
+          scene->mMeshes[meshId]->mVertices[vertexIdx];
+    }
+
+    struct aiColor4D albedo;
+    if (AI_SUCCESS == aiGetMaterialColor(scene->mMaterials[materialId],
+                                         AI_MATKEY_COLOR_DIFFUSE, &albedo)) {
+
+    } else {
+      printf("Failed to load albedo color!\n");
+    }
+
+    *vertexOffset += scene->mMeshes[meshId]->mNumVertices;
+  }
+
+  for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
+    extract_indices(indices, indexOffset, vertices, vertexOffset,
+                    node->mChildren[childIdx], scene);
+  }
 }
 
 float CUBE_VERTICES[] = {
@@ -103,10 +143,16 @@ int main() {
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
   const C_STRUCT aiScene *scene = aiImportFile(
-      "cube/source/cube.obj", aiProcessPreset_TargetRealtime_MaxQuality);
+      "assets/cornell_box_v1.gltf", aiProcessPreset_TargetRealtime_MaxQuality);
+
+  if (scene == NULL) {
+    printf("Failed to load scene\n");
+    glfwTerminate();
+    return -1;
+  }
 
   // FIXME: Uses the structure of example scene for now.
-  struct aiNode *root = scene->mRootNode->mChildren[0];
+  struct aiNode *root = scene->mRootNode;
 
   unsigned int *indices = malloc(KB(10));
   if (indices == NULL) {
@@ -115,24 +161,23 @@ int main() {
     return -1;
   }
 
-  int indexCounter = 0;
+  void *vertices = malloc(KB(10));
 
-  for (int i = 0; i < root->mNumMeshes; i++) {
-    unsigned int meshId = root->mMeshes[i];
+  unsigned int indexCounter = 0;
+  unsigned int vertexOffset = 0;
 
-    for (int j = 0; j < scene->mMeshes[meshId]->mNumFaces; j++) {
-      struct aiFace face = scene->mMeshes[meshId]->mFaces[j];
-      memcpy(indices + indexCounter, face.mIndices,
-             sizeof(unsigned int) * face.mNumIndices);
-      indexCounter += face.mNumIndices;
-    }
-  }
+  extract_indices(indices, &indexCounter, vertices, &vertexOffset, root, scene);
 
   for (int i = 0; i < indexCounter; i++) {
     printf("Vertex (%f, %f, %f)\n", scene->mMeshes[0]->mVertices[i].x,
            scene->mMeshes[0]->mVertices[i].y,
            scene->mMeshes[0]->mVertices[i].z);
   }
+
+  printf("Indexcounter: %d\n", indexCounter);
+  printf("VertexCount: %d\n", scene->mMeshes[0]->mNumVertices);
+  printf("Meshcount: %d\n", scene->mNumMeshes);
+  printf("Childcount: %d\n", scene->mRootNode->mNumChildren);
 
   unsigned int vertexShader, fragShader, shaderProgram;
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -167,8 +212,8 @@ int main() {
                indices, GL_STATIC_DRAW);
 
   glBindBuffer(GL_ARRAY_BUFFER, positions);
-  glBufferData(GL_ARRAY_BUFFER, 24 * 3 * sizeof(float),
-               scene->mMeshes[0]->mVertices, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * vertexOffset, vertices,
+               GL_STATIC_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
@@ -185,9 +230,8 @@ int main() {
     clock_gettime(CLOCK_MONOTONIC, &time);
 
     double currentTime = time.tv_sec + time.tv_nsec / 1000000000.0f;
-    printf("%f\n", currentTime);
 
-    // glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // create transformations
@@ -197,15 +241,16 @@ int main() {
     glm_mat4_identity(view);
     glm_mat4_identity(projection);
 
-    vec3 eye = {3 * cos(currentTime), 0.0f, 3 * sin(currentTime)};
+    // vec3 eye = {3 * cos(currentTime), 0.0f, 3 * sin(currentTime)};
+    vec3 eye = {3.0f, 3.0f, -8.0f};
     vec3 up = {0.0f, 1.0f, 0.0f};
-    vec3 origin = {0.0f, 0.0f, 0.0f};
+    vec3 dir = {0.0f, 0.0f, 1.0f};
 
     // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
-    glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
+    // glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
 
     // view = translate(view, vec3(0.0, 0.0, -3.0));
-    glm_lookat(eye, origin, up, view);
+    glm_look(eye, dir, up, view);
 
     // projection = perspective(radians(45.0f), aspect, near, far)
     glm_perspective(glm_rad(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f,
@@ -223,7 +268,7 @@ int main() {
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, indexCounter, GL_UNSIGNED_INT, 0);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
