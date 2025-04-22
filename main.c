@@ -1,3 +1,4 @@
+#include "assimp/color4.h"
 #include "assimp/material.h"
 #include "assimp/mesh.h"
 #include "assimp/vector3.h"
@@ -20,7 +21,7 @@
 
 typedef struct {
   struct aiVector3D *vertices;
-  struct vec4 *albedo;
+  struct aiColor4D *albedo;
   unsigned int *indices;
 
   unsigned int vertexOffset;
@@ -46,18 +47,19 @@ void extract_indices(model_t *model, struct aiNode *node,
       model->indexOffset += face.mNumIndices;
     }
 
-    for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
-         vertexIdx++) {
-      model->vertices[model->vertexOffset + vertexIdx] =
-          scene->mMeshes[meshId]->mVertices[vertexIdx];
-    }
-
     struct aiColor4D albedo;
     if (AI_SUCCESS == aiGetMaterialColor(scene->mMaterials[materialId],
                                          AI_MATKEY_COLOR_DIFFUSE, &albedo)) {
 
     } else {
       printf("Failed to load albedo color!\n");
+    }
+
+    for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
+         vertexIdx++) {
+      model->vertices[model->vertexOffset + vertexIdx] =
+          scene->mMeshes[meshId]->mVertices[vertexIdx];
+      model->albedo[model->vertexOffset + vertexIdx] = albedo;
     }
 
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
@@ -207,10 +209,10 @@ int main() {
   glDeleteShader(vertexShader);
   glDeleteShader(fragShader);
 
-  unsigned int VAO, EBO, positions, colors;
+  unsigned int VAO, EBO, positions, albedo;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &positions);
-  glGenBuffers(1, &colors);
+  glGenBuffers(1, &albedo);
   glGenBuffers(1, &EBO);
 
   // Configure VAO
@@ -227,10 +229,12 @@ int main() {
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
-  glBindBuffer(GL_ARRAY_BUFFER, colors);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(CUBE_COLORS), CUBE_COLORS,
-               GL_STATIC_DRAW);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+  glBindBuffer(GL_ARRAY_BUFFER, albedo);
+  glBufferData(GL_ARRAY_BUFFER,
+               sizeof(struct aiColor4D) * cornellBox.vertexOffset,
+               cornellBox.albedo, GL_STATIC_DRAW);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct aiColor4D),
+                        (void *)0);
   glEnableVertexAttribArray(1);
 
   while (!glfwWindowShouldClose(window)) {
