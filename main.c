@@ -2,6 +2,7 @@
 #include "assimp/mesh.h"
 #include "assimp/vector3.h"
 #include "bits/types/struct_timeval.h"
+#include "cglm/types.h"
 #include "include/shader.h"
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
@@ -17,13 +18,21 @@
 
 #define KB(x) (x * 1024)
 
+typedef struct {
+  struct aiVector3D *vertices;
+  struct vec4 *albedo;
+  unsigned int *indices;
+
+  unsigned int vertexOffset;
+  unsigned indexOffset;
+} model_t;
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-void extract_indices(unsigned int *indices, unsigned int *indexOffset,
-                     struct aiVector3D *vertices, unsigned int *vertexOffset,
-                     struct aiNode *node, const struct aiScene *scene) {
+void extract_indices(model_t *model, struct aiNode *node,
+                     const struct aiScene *scene) {
   for (int meshIndex = 0; meshIndex < node->mNumMeshes; meshIndex++) {
     unsigned int meshId = node->mMeshes[meshIndex];
     unsigned int materialId = scene->mMeshes[meshId]->mMaterialIndex;
@@ -31,14 +40,15 @@ void extract_indices(unsigned int *indices, unsigned int *indexOffset,
          faceIdx++) {
       struct aiFace face = scene->mMeshes[meshId]->mFaces[faceIdx];
       for (int i = 0; i < face.mNumIndices; i++) {
-        indices[*indexOffset + i] = face.mIndices[i] + (*vertexOffset);
+        model->indices[model->indexOffset + i] =
+            face.mIndices[i] + (model->vertexOffset);
       }
-      *indexOffset += face.mNumIndices;
+      model->indexOffset += face.mNumIndices;
     }
 
     for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
          vertexIdx++) {
-      vertices[*vertexOffset + vertexIdx] =
+      model->vertices[model->vertexOffset + vertexIdx] =
           scene->mMeshes[meshId]->mVertices[vertexIdx];
     }
 
@@ -50,12 +60,11 @@ void extract_indices(unsigned int *indices, unsigned int *indexOffset,
       printf("Failed to load albedo color!\n");
     }
 
-    *vertexOffset += scene->mMeshes[meshId]->mNumVertices;
+    model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
   }
 
   for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
-    extract_indices(indices, indexOffset, vertices, vertexOffset,
-                    node->mChildren[childIdx], scene);
+    extract_indices(model, node->mChildren[childIdx], scene);
   }
 }
 
@@ -154,30 +163,30 @@ int main() {
   // FIXME: Uses the structure of example scene for now.
   struct aiNode *root = scene->mRootNode;
 
-  unsigned int *indices = malloc(KB(10));
-  if (indices == NULL) {
+  model_t cornellBox = {};
+
+  cornellBox.indices = malloc(KB(10));
+  if (cornellBox.indices == NULL) {
     printf("Failed to allocate memory for scene vertices.\n");
     glfwTerminate();
     return -1;
   }
 
-  void *vertices = malloc(KB(10));
-
-  unsigned int indexCounter = 0;
-  unsigned int vertexOffset = 0;
-
-  extract_indices(indices, &indexCounter, vertices, &vertexOffset, root, scene);
-
-  for (int i = 0; i < indexCounter; i++) {
-    printf("Vertex (%f, %f, %f)\n", scene->mMeshes[0]->mVertices[i].x,
-           scene->mMeshes[0]->mVertices[i].y,
-           scene->mMeshes[0]->mVertices[i].z);
+  cornellBox.vertices = malloc(KB(10));
+  if (cornellBox.vertices == NULL) {
+    printf("Failed to allocate buffer for vertices\n");
+    glfwTerminate();
+    return -1;
   }
 
-  printf("Indexcounter: %d\n", indexCounter);
-  printf("VertexCount: %d\n", scene->mMeshes[0]->mNumVertices);
-  printf("Meshcount: %d\n", scene->mNumMeshes);
-  printf("Childcount: %d\n", scene->mRootNode->mNumChildren);
+  cornellBox.albedo = malloc(KB(10));
+  if (cornellBox.albedo == NULL) {
+    printf("Failed to allocate buffer for albedo data\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  extract_indices(&cornellBox, root, scene);
 
   unsigned int vertexShader, fragShader, shaderProgram;
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -208,12 +217,13 @@ int main() {
   glBindVertexArray(VAO);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indexCounter,
-               indices, GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               sizeof(unsigned int) * cornellBox.indexOffset,
+               cornellBox.indices, GL_STATIC_DRAW);
 
   glBindBuffer(GL_ARRAY_BUFFER, positions);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * vertexOffset, vertices,
-               GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * cornellBox.vertexOffset,
+               cornellBox.vertices, GL_STATIC_DRAW);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
@@ -268,14 +278,16 @@ int main() {
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, indexCounter, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
 
   glfwTerminate();
-  free(indices);
+  free(cornellBox.albedo);
+  free(cornellBox.vertices);
+  free(cornellBox.indices);
 
   return 0;
 }
