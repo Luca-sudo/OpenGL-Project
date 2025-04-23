@@ -26,6 +26,7 @@
 typedef struct {
   aiVector3D *vertices;
   aiColor4D *albedo;
+  aiVector3D *normals;
   unsigned int *indices;
 
   unsigned int vertexOffset;
@@ -34,6 +35,38 @@ typedef struct {
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
+}
+
+int allocate_model(model_t *model) {
+  model->indices = (unsigned int *)malloc(KB(10));
+  if (model->indices == NULL) {
+    printf("Failed to allocate memory for scene vertices.\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->vertices = (aiVector3D*)malloc(KB(10));
+  if (model->vertices == NULL) {
+    printf("Failed to allocate buffer for vertices\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->albedo = (aiColor4D*)malloc(KB(10));
+  if (model->albedo == NULL) {
+    printf("Failed to allocate buffer for albedo data\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->normals = (aiVector3D*)malloc(KB(10));
+  if (model->normals == NULL) {
+    printf("Failed to allocate buffer for normals\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  return 0;
 }
 
 void extract_indices(model_t *model, struct aiNode *node,
@@ -64,6 +97,7 @@ void extract_indices(model_t *model, struct aiNode *node,
       model->vertices[model->vertexOffset + vertexIdx] =
           scene->mMeshes[meshId]->mVertices[vertexIdx];
       model->albedo[model->vertexOffset + vertexIdx] = albedo;
+      model->normals[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mNormals[vertexIdx];
     }
 
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
@@ -171,26 +205,10 @@ int main() {
 
   model_t cornellBox = {};
 
-  cornellBox.indices = (unsigned int *)malloc(KB(10));
-  if (cornellBox.indices == NULL) {
-    printf("Failed to allocate memory for scene vertices.\n");
-    glfwTerminate();
+  if (allocate_model(&cornellBox) < 0) {
     return -1;
   }
 
-  cornellBox.vertices = (aiVector3D*)malloc(KB(10));
-  if (cornellBox.vertices == NULL) {
-    printf("Failed to allocate buffer for vertices\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  cornellBox.albedo = (aiColor4D*)malloc(KB(10));
-  if (cornellBox.albedo == NULL) {
-    printf("Failed to allocate buffer for albedo data\n");
-    glfwTerminate();
-    return -1;
-  }
 
   extract_indices(&cornellBox, root, scene);
 
