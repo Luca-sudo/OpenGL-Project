@@ -1,5 +1,5 @@
 INCLUDES = include
-LIBRARIES = -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl -lassimp -lz -lstdc++ -lm
+LIBRARIES = -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl -lassimp -lz -lstdc++ -lm -limgui
 FLAGS = -g
 
 OUT_DIR = build

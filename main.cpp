@@ -17,6 +17,10 @@
 #include <GLFW/glfw3.h>
 #include <string.h>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 #define KB(x) (x * 1024)
 
 typedef struct {
@@ -237,7 +241,21 @@ int main() {
                         (void *)0);
   glEnableVertexAttribArray(1);
 
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  // Setup Platform/Renderer bindings
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init("#version 330");
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
   while (!glfwWindowShouldClose(window)) {
+
+    glfwPollEvents();
+
 
     struct timespec time;
 
@@ -284,9 +302,24 @@ int main() {
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("Demo window");
+    ImGui::Button("Hello!");
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
     glfwSwapBuffers(window);
-    glfwPollEvents();
   }
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
 
   glfwTerminate();
   free(cornellBox.albedo);
