@@ -25,7 +25,7 @@
 		},
 		{
 			"mesh":1,
-			"name":"CeilingObj.001"
+			"name":"CeilingObj"
 		},
 		{
 			"mesh":2,
@@ -51,7 +51,7 @@
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"White.021",
+			"name":"White.023",
 			"pbrMetallicRoughness":{
 				"metallicFactor":0,
 				"roughnessFactor":0.5
@@ -59,7 +59,7 @@
 		},
 		{
 			"doubleSided":true,
-			"name":"Green.021",
+			"name":"Green.022",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
 					0,
@@ -73,7 +73,7 @@
 		},
 		{
 			"doubleSided":true,
-			"name":"Red.021",
+			"name":"Red.001",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
 					1,
@@ -88,7 +88,7 @@
 	],
 	"meshes":[
 		{
-			"name":"FloorMesh.025",
+			"name":"FloorMesh.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -101,7 +101,7 @@
 			]
 		},
 		{
-			"name":"CeilingMesh.025",
+			"name":"CeilingMesh.002",
 			"primitives":[
 				{
 					"attributes":{
@@ -114,7 +114,7 @@
 			]
 		},
 		{
-			"name":"BackWallMesh.014",
+			"name":"BackWallMesh.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -127,7 +127,7 @@
 			]
 		},
 		{
-			"name":"RightWallMesh.014",
+			"name":"RightWallMesh.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -140,7 +140,7 @@
 			]
 		},
 		{
-			"name":"LeftWallMesh.014",
+			"name":"LeftWallMesh.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -153,7 +153,7 @@
 			]
 		},
 		{
-			"name":"ShortBlockMesh.014",
+			"name":"ShortBlockMesh.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -166,7 +166,7 @@
 			]
 		},
 		{
-			"name":"TallBlockMesh.014",
+			"name":"TallBlockMesh.001",
 			"primitives":[
 				{
 					"attributes":{
