@@ -4,11 +4,11 @@ FLAGS = -g
 
 OUT_DIR = build
 
-CC = gcc
+CC = g++
 
 SRCS = $(wildcard src/*.c)
 
-project: $(SRCS) main.c
+project: $(SRCS) main.cpp
 	mkdir -p $(OUT_DIR)
 	$(CC) $(FLAGS) -I$(INCLUDES) $^ -o $(OUT_DIR)/project $(LIBRARIES)
 

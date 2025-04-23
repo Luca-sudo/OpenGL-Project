@@ -20,8 +20,8 @@
 #define KB(x) (x * 1024)
 
 typedef struct {
-  struct aiVector3D *vertices;
-  struct aiColor4D *albedo;
+  aiVector3D *vertices;
+  aiColor4D *albedo;
   unsigned int *indices;
 
   unsigned int vertexOffset;
@@ -47,7 +47,7 @@ void extract_indices(model_t *model, struct aiNode *node,
       model->indexOffset += face.mNumIndices;
     }
 
-    struct aiColor4D albedo;
+    aiColor4D albedo;
     if (AI_SUCCESS == aiGetMaterialColor(scene->mMaterials[materialId],
                                          AI_MATKEY_COLOR_DIFFUSE, &albedo)) {
 
@@ -167,21 +167,21 @@ int main() {
 
   model_t cornellBox = {};
 
-  cornellBox.indices = malloc(KB(10));
+  cornellBox.indices = (unsigned int *)malloc(KB(10));
   if (cornellBox.indices == NULL) {
     printf("Failed to allocate memory for scene vertices.\n");
     glfwTerminate();
     return -1;
   }
 
-  cornellBox.vertices = malloc(KB(10));
+  cornellBox.vertices = (aiVector3D*)malloc(KB(10));
   if (cornellBox.vertices == NULL) {
     printf("Failed to allocate buffer for vertices\n");
     glfwTerminate();
     return -1;
   }
 
-  cornellBox.albedo = malloc(KB(10));
+  cornellBox.albedo = (aiColor4D*)malloc(KB(10));
   if (cornellBox.albedo == NULL) {
     printf("Failed to allocate buffer for albedo data\n");
     glfwTerminate();
@@ -231,9 +231,9 @@ int main() {
 
   glBindBuffer(GL_ARRAY_BUFFER, albedo);
   glBufferData(GL_ARRAY_BUFFER,
-               sizeof(struct aiColor4D) * cornellBox.vertexOffset,
+               sizeof(aiColor4D) * cornellBox.vertexOffset,
                cornellBox.albedo, GL_STATIC_DRAW);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct aiColor4D),
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(aiColor4D),
                         (void *)0);
   glEnableVertexAttribArray(1);
 
