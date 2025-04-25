@@ -33,6 +33,8 @@
 
             assimp
             zlib
+
+            imgui
           ];
 
           shellHook = ''

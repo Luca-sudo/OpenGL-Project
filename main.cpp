@@ -17,11 +17,16 @@
 #include <GLFW/glfw3.h>
 #include <string.h>
 
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
+
 #define KB(x) (x * 1024)
 
 typedef struct {
-  struct aiVector3D *vertices;
-  struct aiColor4D *albedo;
+  aiVector3D *vertices;
+  aiColor4D *albedo;
+  aiVector3D *normals;
   unsigned int *indices;
 
   unsigned int vertexOffset;
@@ -30,6 +35,38 @@ typedef struct {
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
+}
+
+int allocate_model(model_t *model) {
+  model->indices = (unsigned int *)malloc(KB(10));
+  if (model->indices == NULL) {
+    printf("Failed to allocate memory for scene vertices.\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->vertices = (aiVector3D*)malloc(KB(10));
+  if (model->vertices == NULL) {
+    printf("Failed to allocate buffer for vertices\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->albedo = (aiColor4D*)malloc(KB(10));
+  if (model->albedo == NULL) {
+    printf("Failed to allocate buffer for albedo data\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->normals = (aiVector3D*)malloc(KB(10));
+  if (model->normals == NULL) {
+    printf("Failed to allocate buffer for normals\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  return 0;
 }
 
 void extract_indices(model_t *model, struct aiNode *node,
@@ -47,7 +84,7 @@ void extract_indices(model_t *model, struct aiNode *node,
       model->indexOffset += face.mNumIndices;
     }
 
-    struct aiColor4D albedo;
+    aiColor4D albedo;
     if (AI_SUCCESS == aiGetMaterialColor(scene->mMaterials[materialId],
                                          AI_MATKEY_COLOR_DIFFUSE, &albedo)) {
 
@@ -60,6 +97,7 @@ void extract_indices(model_t *model, struct aiNode *node,
       model->vertices[model->vertexOffset + vertexIdx] =
           scene->mMeshes[meshId]->mVertices[vertexIdx];
       model->albedo[model->vertexOffset + vertexIdx] = albedo;
+      model->normals[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mNormals[vertexIdx];
     }
 
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
@@ -70,53 +108,16 @@ void extract_indices(model_t *model, struct aiNode *node,
   }
 }
 
-float CUBE_VERTICES[] = {
-
-    -0.5f, -0.5f, 0.5f, // front
-    0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, -0.5f,
-    0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,
-
-    -0.5f, -0.5f, -0.5f, // back
-    0.5f,  -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, -0.5f,
-    -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f,
-
-    -0.5f, -0.5f, 0.5f, // left
-    -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, -0.5f, -0.5f, -0.5f,
-    -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f,
-
-    0.5f,  -0.5f, 0.5f, // right
-    0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f,
-    -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  -0.5f,
-};
-
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-float CUBE_COLORS[] = {
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
+float LIGHT_VERTICES[] = {
+  343.0, 227.0,  548.8, 
+  343.0, 332.0, 548.8,
+  213.0, 332.0, 548.8, 
+  213.0, 227.0, 548.8
 };
+
 int main() {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -167,26 +168,10 @@ int main() {
 
   model_t cornellBox = {};
 
-  cornellBox.indices = malloc(KB(10));
-  if (cornellBox.indices == NULL) {
-    printf("Failed to allocate memory for scene vertices.\n");
-    glfwTerminate();
+  if (allocate_model(&cornellBox) < 0) {
     return -1;
   }
 
-  cornellBox.vertices = malloc(KB(10));
-  if (cornellBox.vertices == NULL) {
-    printf("Failed to allocate buffer for vertices\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  cornellBox.albedo = malloc(KB(10));
-  if (cornellBox.albedo == NULL) {
-    printf("Failed to allocate buffer for albedo data\n");
-    glfwTerminate();
-    return -1;
-  }
 
   extract_indices(&cornellBox, root, scene);
 
@@ -231,13 +216,27 @@ int main() {
 
   glBindBuffer(GL_ARRAY_BUFFER, albedo);
   glBufferData(GL_ARRAY_BUFFER,
-               sizeof(struct aiColor4D) * cornellBox.vertexOffset,
+               sizeof(aiColor4D) * cornellBox.vertexOffset,
                cornellBox.albedo, GL_STATIC_DRAW);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct aiColor4D),
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(aiColor4D),
                         (void *)0);
   glEnableVertexAttribArray(1);
 
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  // Setup Platform/Renderer bindings
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplOpenGL3_Init("#version 330");
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
   while (!glfwWindowShouldClose(window)) {
+
+    glfwPollEvents();
+
 
     struct timespec time;
 
@@ -284,9 +283,24 @@ int main() {
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::Begin("Demo window");
+    ImGui::Button("Hello!");
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
     glfwSwapBuffers(window);
-    glfwPollEvents();
   }
+
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
 
   glfwTerminate();
   free(cornellBox.albedo);

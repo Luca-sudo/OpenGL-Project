@@ -15,7 +15,7 @@ char *read_shader_from_file(const char *filepath) {
   fseek(file, 0L, SEEK_SET);
 
   // Add one to accomodate null termination
-  char *shader = malloc(fileSize + 1);
+  char *shader = (char *)malloc(fileSize + 1);
   if (shader == NULL) {
     fprintf(stderr, "Failed to allocate memory for shader code @ %s\n",
             filepath);
