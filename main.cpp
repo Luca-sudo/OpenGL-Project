@@ -194,11 +194,13 @@ int main() {
   glDeleteShader(vertexShader);
   glDeleteShader(fragShader);
 
-  unsigned int VAO, EBO, positions, albedo;
+  unsigned int VAO, EBO, positions, albedo, normals;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &positions);
   glGenBuffers(1, &albedo);
   glGenBuffers(1, &EBO);
+  glGenBuffers(1, &normals);
+
 
   // Configure VAO
   glBindVertexArray(VAO);
@@ -221,6 +223,12 @@ int main() {
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(aiColor4D),
                         (void *)0);
   glEnableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, normals);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector3D) * cornellBox.vertexOffset,
+              cornellBox.normals, GL_STATIC_DRAW);
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
+  glEnableVertexAttribArray(2);
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -259,6 +267,9 @@ int main() {
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
 
+    vec3 lightPos = {278.0f, 279.5f, 548.0f};
+    vec3 lightColor = {1.0f, 1.0f, 1.0f};
+
     // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
     // glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
 
@@ -279,6 +290,12 @@ int main() {
     unsigned int projectionLoc =
         glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
+    unsigned int viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
+    glUniform3fv(viewPosLoc, 1, eye);
+    unsigned int lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+    glUniform3fv(lightPosLoc, 1, lightPos);
+    unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
+    glUniform3fv(lightColorLoc, 1, lightColor);
 
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
@@ -304,6 +321,7 @@ int main() {
 
   glfwTerminate();
   free(cornellBox.albedo);
+  free(cornellBox.normals);
   free(cornellBox.vertices);
   free(cornellBox.indices);
 
