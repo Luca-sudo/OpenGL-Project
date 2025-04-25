@@ -17,9 +17,9 @@
 #include <GLFW/glfw3.h>
 #include <string.h>
 
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
+#include <imgui/imgui.h>
+#include <imgui/backends/imgui_impl_glfw.h>
+#include <imgui/backends/imgui_impl_opengl3.h>
 
 #define KB(x) (x * 1024)
 
@@ -108,53 +108,16 @@ void extract_indices(model_t *model, struct aiNode *node,
   }
 }
 
-float CUBE_VERTICES[] = {
-
-    -0.5f, -0.5f, 0.5f, // front
-    0.5f,  -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, -0.5f,
-    0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, 0.5f,  0.5f,
-
-    -0.5f, -0.5f, -0.5f, // back
-    0.5f,  -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, -0.5f,
-    -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f,
-
-    -0.5f, -0.5f, 0.5f, // left
-    -0.5f, 0.5f,  0.5f,  -0.5f, -0.5f, -0.5f, -0.5f, -0.5f,
-    -0.5f, -0.5f, 0.5f,  0.5f,  -0.5f, 0.5f,  -0.5f,
-
-    0.5f,  -0.5f, 0.5f, // right
-    0.5f,  0.5f,  0.5f,  0.5f,  -0.5f, -0.5f, 0.5f,  -0.5f,
-    -0.5f, 0.5f,  0.5f,  0.5f,  0.5f,  0.5f,  -0.5f,
-};
-
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-float CUBE_COLORS[] = {
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
-
-    1.0f, 0.0f, 0.0f, // red
-    0.0f, 1.0f, 0.0f, // green
-    0.0f, 0.0f, 1.0f, // blue
+float LIGHT_VERTICES[] = {
+  343.0, 227.0,  548.8, 
+  343.0, 332.0, 548.8,
+  213.0, 332.0, 548.8, 
+  213.0, 227.0, 548.8
 };
+
 int main() {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
