@@ -267,7 +267,7 @@ int main() {
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
 
-    vec3 lightPos = {278.0f, 279.5f, 548.0f};
+    vec3 lightPos = {2.78f, 5.48f, 2.796f};
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
 
     // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
