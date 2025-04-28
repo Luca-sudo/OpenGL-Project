@@ -10,6 +10,8 @@ The following concepts should be covered:
 - shadow mapping
 
 ## To Do
-- create and add project to repo that can be edited both on linux and Windows
-- Build Cornell Box scene
 - Implement different rendering techniques
+  - spot lights
+  - texture mapping
+  - reflections
+  - shadows
