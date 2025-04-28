@@ -170,12 +170,12 @@ int main() {
 
   unsigned int vertexShader, fragShader, shaderProgram;
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  char *vertShaderCode = read_shader_from_file("shaders/triangle.vert");
+  char *vertShaderCode = read_shader_from_file("shaders/blinn_phong.vert");
   glShaderSource(vertexShader, 1, (const char *const *)&vertShaderCode, NULL);
   glCompileShader(vertexShader);
 
   fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-  char *fragShaderCode = read_shader_from_file("shaders/triangle.frag");
+  char *fragShaderCode = read_shader_from_file("shaders/spotlight.frag");
   glShaderSource(fragShader, 1, (const char *const *)&fragShaderCode, NULL);
   glCompileShader(fragShader);
 
@@ -262,7 +262,10 @@ int main() {
 
     vec3 lightPos = {2.78f, 5.48f, 2.796f};
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
-
+    vec3 lightDir;
+    glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
+    float lightCutoffAngle = cos(0.2618f);              // 15 degrees => around 0.2618 radians
+    float lightOuterCutoffAngle = cos(1.04f);           // 60 degrees
     // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
     // glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
 
@@ -289,6 +292,12 @@ int main() {
     glUniform3fv(lightPosLoc, 1, lightPos);
     unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
     glUniform3fv(lightColorLoc, 1, lightColor);
+    unsigned int lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
+    glUniform3fv(lightDirLoc, 1, lightDir);
+    unsigned int lightCutoffAngleLoc = glGetUniformLocation(shaderProgram, "lightCutoffAngle");
+    glUniform1f(lightCutoffAngleLoc, lightCutoffAngle);
+    unsigned int lightOuterCutoffAngleLoc = glGetUniformLocation(shaderProgram, "lightOuterCutoffAngle");
+    glUniform1f(lightOuterCutoffAngleLoc, lightOuterCutoffAngle);
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
