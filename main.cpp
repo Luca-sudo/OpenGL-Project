@@ -111,13 +111,6 @@ void extract_indices(model_t *model, struct aiNode *node,
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-float LIGHT_VERTICES[] = {
-  343.0, 227.0,  548.8, 
-  343.0, 332.0, 548.8,
-  213.0, 332.0, 548.8, 
-  213.0, 227.0, 548.8
-};
-
 int main() {
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -201,7 +194,6 @@ int main() {
   glGenBuffers(1, &EBO);
   glGenBuffers(1, &normals);
 
-
   // Configure VAO
   glBindVertexArray(VAO);
 
@@ -229,6 +221,7 @@ int main() {
               cornellBox.normals, GL_STATIC_DRAW);
   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
   glEnableVertexAttribArray(2);
+
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -296,10 +289,8 @@ int main() {
     glUniform3fv(lightPosLoc, 1, lightPos);
     unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
     glUniform3fv(lightColorLoc, 1, lightColor);
-
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
-
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();

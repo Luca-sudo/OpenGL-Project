@@ -13,7 +13,7 @@ out vec4 FragColor;
 void main()
 {
     // ambient
-    float ambientStrength = 0.1;
+    float ambientStrength = 0.2;
     vec3 ambient = ambientStrength * lightColor;
   	
     // diffuse 
@@ -23,7 +23,7 @@ void main()
     vec3 diffuse = diff * lightColor;
     
     // specular
-    float specularStrength = 0.5;
+    float specularStrength = 0.7;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
