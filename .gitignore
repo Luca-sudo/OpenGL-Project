@@ -1,3 +1,6 @@
 .direnv
 build
 imgur.ini
+obj/
+temp/
+libimgui.a
