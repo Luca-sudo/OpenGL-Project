@@ -175,7 +175,7 @@ int main() {
   glCompileShader(vertexShader);
 
   fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-  char *fragShaderCode = read_shader_from_file("shaders/spotlight.frag");
+  char *fragShaderCode = read_shader_from_file("shaders/blinn_phong.frag");
   glShaderSource(fragShader, 1, (const char *const *)&fragShaderCode, NULL);
   glCompileShader(fragShader);
 
@@ -284,7 +284,7 @@ int main() {
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
 
-    vec3 lightPos = {2.78f, 5.48f, 2.796f};
+    vec3 lightPos = {2.78f, 5.2f, 2.796f};
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
     vec3 lightDir;
     glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
