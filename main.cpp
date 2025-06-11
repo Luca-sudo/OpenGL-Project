@@ -176,6 +176,8 @@ int main() {
   // Define and instantiate all shaders.
   int selected_shader = 0;
   ShaderDeclaration SHADERS[] = {
+    {"Flat", "shaders/flat.vert", "shaders/flat.frag"},
+    {"Lambertian", "shaders/lambertian.vert", "shaders/lambertian.frag"},
     {"Phong", "shaders/phong.vert", "shaders/phong.frag"},
     {"Blinn-Phong", "shaders/blinn_phong.vert", "shaders/blinn_phong.frag"},
     {"Spotlight", "shaders/blinn_phong.vert", "shaders/spotlight.frag"},
