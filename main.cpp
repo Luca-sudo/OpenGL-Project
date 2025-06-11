@@ -23,6 +23,11 @@
 
 #define KB(x) (x * 1024)
 
+struct ShaderDeclaration {
+  const char *name, *vertPath, *fragPath;
+  unsigned int program = 0;
+};
+
 typedef struct {
   aiVector3D *vertices;
   aiColor4D *albedo;
@@ -168,24 +173,41 @@ int main() {
 
   extract_indices(&cornellBox, root, scene);
 
-  unsigned int vertexShader, fragShader, shaderProgram;
-  vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  char *vertShaderCode = read_shader_from_file("shaders/blinn_phong.vert");
-  glShaderSource(vertexShader, 1, (const char *const *)&vertShaderCode, NULL);
-  glCompileShader(vertexShader);
+  // Define and instantiate all shaders.
+  int selected_shader = 0;
+  ShaderDeclaration SHADERS[] = {
+    {"Phong", "shaders/phong.vert", "shaders/phong.frag"},
+    {"Blinn-Phong", "shaders/blinn_phong.vert", "shaders/blinn_phong.frag"},
+    {"Spotlight", "shaders/blinn_phong.vert", "shaders/spotlight.frag"},
+  };
 
-  fragShader = glCreateShader(GL_FRAGMENT_SHADER);
-  char *fragShaderCode = read_shader_from_file("shaders/spotlight.frag");
-  glShaderSource(fragShader, 1, (const char *const *)&fragShaderCode, NULL);
-  glCompileShader(fragShader);
+  auto NUM_SHADERS = sizeof(SHADERS) / sizeof(SHADERS[0]);
+  const char* SHADER_NAMES[NUM_SHADERS];
 
-  shaderProgram = glCreateProgram();
-  glAttachShader(shaderProgram, vertexShader);
-  glAttachShader(shaderProgram, fragShader);
-  glLinkProgram(shaderProgram);
+  for(int i = 0; i < NUM_SHADERS; i++){
+    unsigned int vertexShader, fragShader, shaderProgram;
+    vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    char *vertShaderCode = read_shader_from_file(SHADERS[i].vertPath);
+    glShaderSource(vertexShader, 1, (const char *const *)&vertShaderCode, NULL);
+    glCompileShader(vertexShader);
 
-  glDeleteShader(vertexShader);
-  glDeleteShader(fragShader);
+    fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+    char *fragShaderCode = read_shader_from_file(SHADERS[i].fragPath);
+    glShaderSource(fragShader, 1, (const char *const *)&fragShaderCode, NULL);
+    glCompileShader(fragShader);
+
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragShader);
+    glLinkProgram(shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragShader);
+
+    SHADERS[i].program = shaderProgram;
+    SHADER_NAMES[i] = SHADERS[i].name;
+  }
+
 
   unsigned int VAO, EBO, positions, albedo, normals;
   glGenVertexArrays(1, &VAO);
@@ -276,6 +298,8 @@ int main() {
     glm_perspective(glm_rad(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f,
                     100.0f, projection);
 
+    unsigned int &shaderProgram = SHADERS[selected_shader].program;
+
     glUseProgram(shaderProgram);
 
     // set uniforms
@@ -306,7 +330,7 @@ int main() {
     ImGui::NewFrame();
 
     ImGui::Begin("Demo window");
-    ImGui::Button("Hello!");
+    ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::End();
 
     ImGui::Render();
