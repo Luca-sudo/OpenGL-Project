@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
+#include <iostream>
 
 #include <GLFW/glfw3.h>
 #include <string.h>
@@ -20,6 +21,9 @@
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_opengl3.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "include/stb_image.h"
 
 #define KB(x) (x * 1024)
 
@@ -34,8 +38,8 @@ typedef struct {
   aiVector3D *normals;
   aiVector2D *uvs;
   unsigned int *indices;
-  std::string normalMapPath;
-  std::string diffuseMapPath;
+  const char *normalMapPath;
+  const char *diffuseMapPath;
 
   unsigned int vertexOffset;
   unsigned indexOffset;
@@ -84,6 +88,7 @@ int allocate_model(model_t *model) {
   return 0;
 }
 
+
 void extract_textures(model_t *model, const struct aiScene *scene){
   for(int i = 0; i < scene->mNumMaterials; i++){
     aiMaterial* mat = scene->mMaterials[i];
@@ -93,7 +98,7 @@ void extract_textures(model_t *model, const struct aiScene *scene){
     for(unsigned int j = 0; j < normalMapCount; j++){
       aiString path;
       mat->GetTexture(aiTextureType_NORMALS, 0, &path);
-      model->normalMapPath = std::string(path.C_Str());
+      model->normalMapPath = path.C_Str();
     }
 
     unsigned int textureMapCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
@@ -101,7 +106,7 @@ void extract_textures(model_t *model, const struct aiScene *scene){
     for(unsigned int j = 0; j < textureMapCount; j++){
       aiString path;
       mat->GetTexture(aiTextureType_DIFFUSE, 0, &path);
-      model->diffuseMapPath = std::string(path.C_Str());
+      model->diffuseMapPath = path.C_Str();
     }
   }
 }
@@ -199,7 +204,7 @@ int main() {
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
   const C_STRUCT aiScene *scene = aiImportFile(
-      "assets/cornell_box_v1.gltf", aiProcessPreset_TargetRealtime_MaxQuality);
+      "assets/cornell_box_v2.gltf", aiProcessPreset_TargetRealtime_MaxQuality);
 
   if (scene == NULL) {
     printf("Failed to load scene\n");
@@ -220,6 +225,30 @@ int main() {
   extract_indices(&cornellBox, root, scene);
   extract_textures(&cornellBox, scene);
 
+  std::cout << "Normals: " << cornellBox.normalMapPath << ", diffuse: " << cornellBox.diffuseMapPath << std::endl;
+
+  unsigned int textures[2];
+  glGenTextures(2, textures);
+  unsigned int& normalMap = textures[0];
+  unsigned int& diffuseMap = textures[1];
+
+  // Configuring the sampler, loading & configuring texture.
+  glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+  int width, height, nrComponents;
+  unsigned char *textureData = stbi_load(cornellBox.normalMapPath, &width, &height, &nrComponents, 0);
+  if(textureData){
+    std::cout << "Found texture, now generate in GL." << std::endl;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  }
+  stbi_image_free(textureData);
+
   // Define and instantiate all shaders.
   int selected_shader = 0;
   ShaderDeclaration SHADERS[] = {
@@ -228,10 +257,12 @@ int main() {
     {"Phong", "shaders/phong.vert", "shaders/phong.frag"},
     {"Blinn-Phong", "shaders/blinn_phong.vert", "shaders/blinn_phong.frag"},
     {"Spotlight", "shaders/blinn_phong.vert", "shaders/spotlight.frag"},
+    {"Texture", "shaders/texture.vert", "shaders/texture.frag"},
   };
 
   auto NUM_SHADERS = sizeof(SHADERS) / sizeof(SHADERS[0]);
   const char* SHADER_NAMES[NUM_SHADERS];
+  std::cout << "Nr. of shaders: " << NUM_SHADERS << std::endl;
 
   for(int i = 0; i < NUM_SHADERS; i++){
     unsigned int vertexShader, fragShader, shaderProgram;
@@ -287,7 +318,7 @@ int main() {
   glBufferData(GL_ARRAY_BUFFER,
                sizeof(aiColor4D) * cornellBox.vertexOffset,
                cornellBox.albedo, GL_STATIC_DRAW);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(aiColor4D),
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(aiColor4D),
                         (void *)0);
   glEnableVertexAttribArray(1);
 
@@ -300,7 +331,7 @@ int main() {
   glBindBuffer(GL_ARRAY_BUFFER, uvs);
   glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector2D) * cornellBox.vertexOffset,
               cornellBox.uvs, GL_STATIC_DRAW);
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector2D), (void *)0);
+  glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(aiVector2D), (void *)0);
   glEnableVertexAttribArray(3);
 
 
@@ -381,6 +412,8 @@ int main() {
     glUniform1f(lightCutoffAngleLoc, lightCutoffAngle);
     unsigned int lightOuterCutoffAngleLoc = glGetUniformLocation(shaderProgram, "lightOuterCutoffAngle");
     glUniform1f(lightOuterCutoffAngleLoc, lightOuterCutoffAngle);
+
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
