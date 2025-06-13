@@ -32,7 +32,10 @@ typedef struct {
   aiVector3D *vertices;
   aiColor4D *albedo;
   aiVector3D *normals;
+  aiVector2D *uvs;
   unsigned int *indices;
+  std::string normalMapPath;
+  std::string diffuseMapPath;
 
   unsigned int vertexOffset;
   unsigned indexOffset;
@@ -71,7 +74,36 @@ int allocate_model(model_t *model) {
     return -1;
   }
 
+  model->uvs = (aiVector2D*)malloc(KB(10));
+  if (model->uvs == NULL) {
+    printf("Failed to allocate buffer for normals\n");
+    glfwTerminate();
+    return -1;
+  }
+
   return 0;
+}
+
+void extract_textures(model_t *model, const struct aiScene *scene){
+  for(int i = 0; i < scene->mNumMaterials; i++){
+    aiMaterial* mat = scene->mMaterials[i];
+
+    unsigned int normalMapCount = mat->GetTextureCount(aiTextureType_NORMALS);
+
+    for(unsigned int j = 0; j < normalMapCount; j++){
+      aiString path;
+      mat->GetTexture(aiTextureType_NORMALS, 0, &path);
+      model->normalMapPath = std::string(path.C_Str());
+    }
+
+    unsigned int textureMapCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
+
+    for(unsigned int j = 0; j < textureMapCount; j++){
+      aiString path;
+      mat->GetTexture(aiTextureType_DIFFUSE, 0, &path);
+      model->diffuseMapPath = std::string(path.C_Str());
+    }
+  }
 }
 
 void extract_indices(model_t *model, struct aiNode *node,
@@ -97,16 +129,30 @@ void extract_indices(model_t *model, struct aiNode *node,
       printf("Failed to load albedo color!\n");
     }
 
+    aiString str;
+    aiGetMaterialTexture(scene->mMaterials[materialId], aiTextureType_NORMALS, 0, &str);
+
+
     for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
          vertexIdx++) {
       model->vertices[model->vertexOffset + vertexIdx] =
           scene->mMeshes[meshId]->mVertices[vertexIdx];
       model->albedo[model->vertexOffset + vertexIdx] = albedo;
       model->normals[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mNormals[vertexIdx];
+      // Does the mesh contain vertex coordinates?
+      if(scene->mMeshes[meshId]->mTextureCoords[0]){
+        aiVector2D uv;
+        uv.x = scene->mMeshes[meshId]->mTextureCoords[0][vertexIdx].x;
+        uv.y = scene->mMeshes[meshId]->mTextureCoords[0][vertexIdx].y;
+        model->uvs[model->vertexOffset + vertexIdx] = uv;
+      }else {
+        model->uvs[model->vertexOffset + vertexIdx] = (aiVector2D){-1.0f, -1.0f};
+      }
     }
 
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
   }
+
 
   for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
     extract_indices(model, node->mChildren[childIdx], scene);
@@ -172,6 +218,7 @@ int main() {
 
 
   extract_indices(&cornellBox, root, scene);
+  extract_textures(&cornellBox, scene);
 
   // Define and instantiate all shaders.
   int selected_shader = 0;
@@ -210,13 +257,17 @@ int main() {
     SHADER_NAMES[i] = SHADERS[i].name;
   }
 
+  unsigned int VAO;
+  unsigned int vertexBuffers[5] = {0};
 
-  unsigned int VAO, EBO, positions, albedo, normals;
   glGenVertexArrays(1, &VAO);
-  glGenBuffers(1, &positions);
-  glGenBuffers(1, &albedo);
-  glGenBuffers(1, &EBO);
-  glGenBuffers(1, &normals);
+  glGenBuffers(5, vertexBuffers);
+
+  unsigned int &EBO = vertexBuffers[0];
+  unsigned int &positions = vertexBuffers[1];
+  unsigned int &albedo = vertexBuffers[2];
+  unsigned int &normals = vertexBuffers[3];
+  unsigned int &uvs = vertexBuffers[4];
 
   // Configure VAO
   glBindVertexArray(VAO);
@@ -245,6 +296,12 @@ int main() {
               cornellBox.normals, GL_STATIC_DRAW);
   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
   glEnableVertexAttribArray(2);
+
+  glBindBuffer(GL_ARRAY_BUFFER, uvs);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector2D) * cornellBox.vertexOffset,
+              cornellBox.uvs, GL_STATIC_DRAW);
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector2D), (void *)0);
+  glEnableVertexAttribArray(3);
 
 
   // Setup Dear ImGui context
@@ -350,6 +407,7 @@ int main() {
   free(cornellBox.normals);
   free(cornellBox.vertices);
   free(cornellBox.indices);
+  free(cornellBox.uvs);
 
   return 0;
 }
