@@ -529,7 +529,7 @@
 	"buffers":[
 		{
 			"byteLength":1812,
-			"uri":"cornell_box.bin"
+			"uri":"cornell_box_normal_mapping.bin"
 		}
 	]
 }
