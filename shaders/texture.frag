@@ -9,7 +9,7 @@ uniform vec3 lightPos;
 uniform vec3 viewPos; 
 uniform vec3 lightColor;
 
-uniform sampler2D textureSampler;
+uniform sampler2D brickwall;
 
 out vec4 FragColor;
 
@@ -30,8 +30,11 @@ void main()
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 64);
-    vec3 specular = specularStrength * spec * lightColor;  
-        
-    vec3 result = texture(textureSampler, uv) * (ambient + diffuse + specular) * albedo.rgb;
+    vec3 specular = specularStrength * spec * lightColor;
+    vec3 text = vec3(1.0, 1.0, 1.0);
+    if(Uv.x != -1.0 || Uv.y != -1.0){
+        text = texture(brickwall, Uv).rgb;
+    }
+    vec3 result = text * (ambient + diffuse + specular) * albedo.rgb;
     FragColor = vec4(result, 1.0);
 }

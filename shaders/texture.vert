@@ -13,13 +13,16 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform sampler2D brickwall;
+
 void main()
 {
     albedo = vAlbedo;
-    Uv = vUv;
 
     FragPos = vec3(model * vec4(vPos, 1.0));
     Normal = mat3(transpose(inverse(model))) * aNormal;
+
+    Uv = vUv;
     
     gl_Position = projection * view * vec4(FragPos, 1.0);
 }

@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <iostream>
+#include <filesystem>
 
 #include <GLFW/glfw3.h>
 #include <string.h>
@@ -38,12 +39,37 @@ typedef struct {
   aiVector3D *normals;
   aiVector2D *uvs;
   unsigned int *indices;
-  const char *normalMapPath;
-  const char *diffuseMapPath;
+  std::string normalMapPath;
+  std::string diffuseMapPath;
 
   unsigned int vertexOffset;
   unsigned indexOffset;
 } model_t;
+
+void check_shader_compiling(unsigned int shader) {
+    GLint success;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        GLint logLength;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+        char log[logLength];
+        glGetShaderInfoLog(shader, logLength, nullptr, log);
+        throw std::runtime_error("Shader compilation failed!\n" + std::string(log));
+    }
+}
+
+void check_shader_linking(unsigned int shader) {
+    GLint success;
+    glGetShaderiv(shader, GL_LINK_STATUS, &success);
+    if (!success) {
+        GLint logLength;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+        char log[logLength];
+        glGetShaderInfoLog(shader, logLength, nullptr, log);
+        throw std::runtime_error("Shader linking failed!\n" + std::string(log));
+    }
+
+}
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
@@ -98,7 +124,7 @@ void extract_textures(model_t *model, const struct aiScene *scene){
     for(unsigned int j = 0; j < normalMapCount; j++){
       aiString path;
       mat->GetTexture(aiTextureType_NORMALS, 0, &path);
-      model->normalMapPath = path.C_Str();
+      model->normalMapPath = std::string("./") + std::string(path.C_Str());
     }
 
     unsigned int textureMapCount = mat->GetTextureCount(aiTextureType_DIFFUSE);
@@ -106,7 +132,7 @@ void extract_textures(model_t *model, const struct aiScene *scene){
     for(unsigned int j = 0; j < textureMapCount; j++){
       aiString path;
       mat->GetTexture(aiTextureType_DIFFUSE, 0, &path);
-      model->diffuseMapPath = path.C_Str();
+      model->diffuseMapPath = std::string("./") + std::string(path.C_Str());
     }
   }
 }
@@ -157,7 +183,6 @@ void extract_indices(model_t *model, struct aiNode *node,
 
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
   }
-
 
   for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
     extract_indices(model, node->mChildren[childIdx], scene);
@@ -225,29 +250,12 @@ int main() {
   extract_indices(&cornellBox, root, scene);
   extract_textures(&cornellBox, scene);
 
-  std::cout << "Normals: " << cornellBox.normalMapPath << ", diffuse: " << cornellBox.diffuseMapPath << std::endl;
 
-  unsigned int textures[2];
+  unsigned int textures[2] = {0};
   glGenTextures(2, textures);
   unsigned int& normalMap = textures[0];
   unsigned int& diffuseMap = textures[1];
 
-  // Configuring the sampler, loading & configuring texture.
-  glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
-  int width, height, nrComponents;
-  unsigned char *textureData = stbi_load(cornellBox.normalMapPath, &width, &height, &nrComponents, 0);
-  if(textureData){
-    std::cout << "Found texture, now generate in GL." << std::endl;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  }
-  stbi_image_free(textureData);
 
   // Define and instantiate all shaders.
   int selected_shader = 0;
@@ -271,15 +279,21 @@ int main() {
     glShaderSource(vertexShader, 1, (const char *const *)&vertShaderCode, NULL);
     glCompileShader(vertexShader);
 
+    check_shader_compiling(vertexShader);
+
     fragShader = glCreateShader(GL_FRAGMENT_SHADER);
     char *fragShaderCode = read_shader_from_file(SHADERS[i].fragPath);
     glShaderSource(fragShader, 1, (const char *const *)&fragShaderCode, NULL);
     glCompileShader(fragShader);
 
+    check_shader_compiling(fragShader);
+
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragShader);
     glLinkProgram(shaderProgram);
+
+    check_shader_linking(shaderProgram);
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragShader);
@@ -334,6 +348,31 @@ int main() {
   glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(aiVector2D), (void *)0);
   glEnableVertexAttribArray(3);
 
+  // Configuring the sampler, loading & configuring texture.
+  glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+  int width, height, nrComponents;
+  unsigned char *textureData = stbi_load(cornellBox.diffuseMapPath.c_str(),&width, &height, &nrComponents, 0);
+  if(textureData == NULL){
+    std::cout << "Current working dir: " << std::filesystem::current_path() << std::endl;
+    std::cout << stbi_failure_reason() << std::endl;
+    throw std::runtime_error("Failed to load diffuse map.");
+  }
+  else{
+    std::cout << "Found texture, now generate in GL." << std::endl;
+    GLenum format;
+    if(nrComponents == 3)
+      format = GL_RGB;
+    else if(nrComponents == 4)
+      format = GL_RGBA;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, textureData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  }
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -413,8 +452,11 @@ int main() {
     unsigned int lightOuterCutoffAngleLoc = glGetUniformLocation(shaderProgram, "lightOuterCutoffAngle");
     glUniform1f(lightOuterCutoffAngleLoc, lightOuterCutoffAngle);
 
-    glBindTexture(GL_TEXTURE_2D, diffuseMap);
     glBindVertexArray(VAO);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
     ImGui_ImplOpenGL3_NewFrame();
