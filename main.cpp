@@ -373,6 +373,34 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
+  free(textureData);
+
+  glBindTexture(GL_TEXTURE_2D, normalMap);
+
+  textureData = stbi_load(cornellBox.normalMapPath.c_str(), &width, &height, &nrComponents, 0);
+  if(textureData == NULL){
+    std::cout << "Current working dir: " << std::filesystem::current_path() << std::endl;
+    std::cout << stbi_failure_reason() << std::endl;
+    throw std::runtime_error("Failed to load normal map.");
+  }
+  else{
+    std::cout << "Found texture, now generate in GL." << std::endl;
+    GLenum format;
+    if(nrComponents == 3)
+      format = GL_RGB;
+    else if(nrComponents == 4)
+      format = GL_RGBA;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, textureData);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  }
+
+  free(textureData);
+
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -454,8 +482,15 @@ int main() {
 
     glBindVertexArray(VAO);
 
+    // Due to GLSL version 330, have to set uniform bind slots here.
+    glUniform1i(glGetUniformLocation(shaderProgram, "diffuseMap"), 0);
+    glUniform1i(glGetUniformLocation(shaderProgram, "normalMap"), 1);
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normalMap);
 
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
