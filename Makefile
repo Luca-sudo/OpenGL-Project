@@ -19,7 +19,7 @@ IMGUI_OBJS = $(IMGUI_SRCS:%.cpp=obj/%.o)
 
 ALL_SRCS = $(SRCS) main.cpp
 
-all: libimgui.a project
+all: libimgui.a project move_textures
 
 project: $(ALL_SRCS)
 	mkdir -p $(OUT_DIR)
@@ -32,8 +32,12 @@ obj/%.o: %.cpp
 libimgui.a: $(IMGUI_OBJS)
 	ar rcs libimgui.a $^
 
+move_textures:
+	cp -r textures $(OUT_DIR)/
 
 clean:
 	rm -rf $(OUT_DIR)
 	rm -rf obj
 	rm libimgui.a
+
+.PHONY: move_textures
