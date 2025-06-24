@@ -4,6 +4,7 @@ in vec4 albedo;
 in vec3 Normal;  
 in vec3 FragPos;
 in vec2 Uv;
+in mat3 TBN;
 
 uniform vec3 lightPos; 
 uniform vec3 viewPos; 
@@ -21,8 +22,10 @@ void main()
     vec3 normal = Normal;
     if(Uv.x != -1.0 || Uv.y != -1.0){
         text = texture(diffuseMap, Uv).rgb;
-        normal = normalize(texture(normalMap, Uv).rgb * 2.0 - 1.0);
+        vec3 modelNormal = texture(normalMap, Uv).rgb * 2.0 - 1.0;
+        normal = TBN * modelNormal;
     }
+
     // ambient
     float ambientStrength = 0.2;
     vec3 ambient = ambientStrength * lightColor;
@@ -37,7 +40,7 @@ void main()
     float specularStrength = 0.5;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 64);
+    float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor;
     vec3 result = text * (ambient + diffuse + specular) * albedo.rgb;
     FragColor = vec4(result, 1.0);

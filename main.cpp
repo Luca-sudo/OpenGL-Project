@@ -38,6 +38,8 @@ typedef struct {
   aiColor4D *albedo;
   aiVector3D *normals;
   aiVector2D *uvs;
+  aiVector3D *tangents;
+  aiVector3D *bitangents;
   unsigned int *indices;
   std::string normalMapPath;
   std::string diffuseMapPath;
@@ -75,6 +77,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
+//TODO: Coalesce into one allocation.
 int allocate_model(model_t *model) {
   model->indices = (unsigned int *)malloc(KB(10));
   if (model->indices == NULL) {
@@ -107,6 +110,20 @@ int allocate_model(model_t *model) {
   model->uvs = (aiVector2D*)malloc(KB(10));
   if (model->uvs == NULL) {
     printf("Failed to allocate buffer for normals\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->tangents = (aiVector3D*)malloc(KB(10));
+  if (model->tangents == NULL) {
+    printf("Failed to allocate buffer for tangents\n");
+    glfwTerminate();
+    return -1;
+  }
+
+  model->bitangents = (aiVector3D*)malloc(KB(10));
+  if (model->bitangents == NULL) {
+    printf("Failed to allocate buffer for tangents\n");
     glfwTerminate();
     return -1;
   }
@@ -176,8 +193,11 @@ void extract_indices(model_t *model, struct aiNode *node,
         uv.x = scene->mMeshes[meshId]->mTextureCoords[0][vertexIdx].x;
         uv.y = scene->mMeshes[meshId]->mTextureCoords[0][vertexIdx].y;
         model->uvs[model->vertexOffset + vertexIdx] = uv;
+        model->tangents[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mTangents[vertexIdx];
+        model->bitangents[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mBitangents[vertexIdx];
       }else {
         model->uvs[model->vertexOffset + vertexIdx] = (aiVector2D){-1.0f, -1.0f};
+        model->tangents[model->vertexOffset + vertexIdx] = (aiVector3D){0.0f, 0.0f, 0.0f};
       }
     }
 
@@ -229,7 +249,7 @@ int main() {
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
   const C_STRUCT aiScene *scene = aiImportFile(
-      "assets/cornell_box_v2.gltf", aiProcessPreset_TargetRealtime_MaxQuality);
+      "assets/cornell_box_v2.gltf", aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_CalcTangentSpace);
 
   if (scene == NULL) {
     printf("Failed to load scene\n");
@@ -303,16 +323,18 @@ int main() {
   }
 
   unsigned int VAO;
-  unsigned int vertexBuffers[5] = {0};
+  unsigned int vertexBuffers[7] = {0};
 
   glGenVertexArrays(1, &VAO);
-  glGenBuffers(5, vertexBuffers);
+  glGenBuffers(7, vertexBuffers);
 
   unsigned int &EBO = vertexBuffers[0];
   unsigned int &positions = vertexBuffers[1];
   unsigned int &albedo = vertexBuffers[2];
   unsigned int &normals = vertexBuffers[3];
   unsigned int &uvs = vertexBuffers[4];
+  unsigned int &tangents = vertexBuffers[5];
+  unsigned int &bitangents = vertexBuffers[6];
 
   // Configure VAO
   glBindVertexArray(VAO);
@@ -347,6 +369,18 @@ int main() {
               cornellBox.uvs, GL_STATIC_DRAW);
   glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(aiVector2D), (void *)0);
   glEnableVertexAttribArray(3);
+
+  glBindBuffer(GL_ARRAY_BUFFER, tangents);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector3D) * cornellBox.vertexOffset,
+               cornellBox.tangents, GL_STATIC_DRAW);
+  glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
+  glEnableVertexAttribArray(4);
+
+  glBindBuffer(GL_ARRAY_BUFFER, bitangents);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector3D) * cornellBox.vertexOffset,
+               cornellBox.bitangents, GL_STATIC_DRAW);
+  glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
+  glEnableVertexAttribArray(5);
 
   // Configuring the sampler, loading & configuring texture.
   glBindTexture(GL_TEXTURE_2D, diffuseMap);
@@ -413,6 +447,8 @@ int main() {
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
+  vec3 lightPos = {2.78f, 5.48f, 2.796f};
+
   while (!glfwWindowShouldClose(window)) {
 
     glfwPollEvents();
@@ -439,14 +475,13 @@ int main() {
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
 
-    vec3 lightPos = {2.78f, 5.48f, 2.796f};
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
     vec3 lightDir;
     glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
     float lightCutoffAngle = cos(0.2618f);              // 15 degrees => around 0.2618 radians
     float lightOuterCutoffAngle = cos(1.04f);           // 60 degrees
     // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
-    // glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
+    // glm_rotate(model, glm_rad(-25.0f), (vec3){0.0f, 1.0f, 0.0f});
 
     // view = translate(view, vec3(0.0, 0.0, -3.0));
     glm_look(eye, dir, up, view);
@@ -500,6 +535,7 @@ int main() {
 
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
+    ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
     ImGui::End();
 
     ImGui::Render();
