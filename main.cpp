@@ -38,6 +38,11 @@ typedef struct {
   unsigned indexOffset;
 } model_t;
 
+typedef struct {
+  vec3 point;    // A point on the plane
+  vec3 normal;   // Plane normal (should point towards the viewer)
+} reflection_plane_t;
+
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
@@ -113,8 +118,70 @@ void extract_indices(model_t *model, struct aiNode *node,
   }
 }
 
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+void reflect_point_across_plane(vec3 result, vec3 point, vec3 plane_point, vec3 plane_normal) {
+  vec3 n;
+  glm_vec3_normalize_to(plane_normal, n);
+  
+  vec3 to_point;
+  glm_vec3_sub(point, plane_point, to_point);
+  
+  float distance = glm_vec3_dot(to_point, n);
+  
+  vec3 reflection_offset;
+  glm_vec3_scale(n, 2.0f * distance, reflection_offset);
+  glm_vec3_sub(point, reflection_offset, result);
+}
+
+void reflect_direction_across_plane(vec3 dest, vec3 v, vec3 plane_normal) {
+    vec3 temp;
+    float dot = glm_vec3_dot(v, plane_normal);
+    glm_vec3_scale(plane_normal, 2.0f * dot, temp);
+    glm_vec3_sub(v, temp, dest);
+}
+
+void create_reflective_surface_stencil(unsigned int* VAO_stencil, unsigned int* VBO_stencil) {
+  float center_point[] = {3.440f, 1.650f, 2.714f};
+  float scale = 1.0f;
+
+  float original_vertices[] = {
+    2.650f, 3.300f, 2.959f,
+    4.230f, 3.300f, 2.469f,
+    4.230f, 0.000f, 2.469f,
+    2.650f, 0.000f, 2.959f
+  };
+
+  float stencil_vertices[12];
+  for (int i = 0; i < 4; ++i) {
+    int j = i * 3;
+    stencil_vertices[j + 0] = center_point[0] + scale * (original_vertices[j + 0] - center_point[0]);
+    stencil_vertices[j + 1] = center_point[1] + scale * (original_vertices[j + 1] - center_point[1]);
+    stencil_vertices[j + 2] = center_point[2] + scale * (original_vertices[j + 2] - center_point[2]);
+  }
+  
+  unsigned int stencil_indices[] = {
+    0, 1, 2,
+    2, 3, 0
+  };
+
+  glGenVertexArrays(1, VAO_stencil);
+  glGenBuffers(1, VBO_stencil);
+  unsigned int EBO_stencil;
+  glGenBuffers(1, &EBO_stencil);
+
+  glBindVertexArray(*VAO_stencil);
+
+  glBindBuffer(GL_ARRAY_BUFFER, *VBO_stencil);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(stencil_vertices), stencil_vertices, GL_STATIC_DRAW);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO_stencil);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(stencil_indices), stencil_indices, GL_STATIC_DRAW);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+  glEnableVertexAttribArray(0);
+}
+
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 900;
 
 int main() {
 
@@ -147,8 +214,9 @@ int main() {
   }
 
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_STENCIL_TEST);
 
-  glViewport(0, 0, 800, 600);
+  glViewport(0, 0, 1200, 900);
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
@@ -161,7 +229,6 @@ int main() {
     return -1;
   }
 
-  // FIXME: Uses the structure of example scene for now.
   struct aiNode *root = scene->mRootNode;
 
   model_t cornellBox = {};
@@ -170,17 +237,21 @@ int main() {
     return -1;
   }
 
-
   extract_indices(&cornellBox, root, scene);
 
-  // Define and instantiate all shaders.
-  int selected_shader = 0;
+  reflection_plane_t mirror_plane = {
+    {3.440f, 1.650f, 2.714f},
+    {-0.296f, 0.000f, -0.955f}
+  };
+
+  int selected_shader = 5;
   ShaderDeclaration SHADERS[] = {
     {"Flat", "shaders/flat.vert", "shaders/flat.frag"},
     {"Lambertian", "shaders/lambertian.vert", "shaders/lambertian.frag"},
     {"Phong", "shaders/phong.vert", "shaders/phong.frag"},
     {"Blinn-Phong", "shaders/blinn_phong.vert", "shaders/blinn_phong.frag"},
     {"Spotlight", "shaders/blinn_phong.vert", "shaders/spotlight.frag"},
+    {"Reflection", "shaders/reflection.vert", "shaders/blinn_phong.frag"}
   };
 
   auto NUM_SHADERS = sizeof(SHADERS) / sizeof(SHADERS[0]);
@@ -210,7 +281,6 @@ int main() {
     SHADER_NAMES[i] = SHADERS[i].name;
   }
 
-
   unsigned int VAO, EBO, positions, albedo, normals;
   glGenVertexArrays(1, &VAO);
   glGenBuffers(1, &positions);
@@ -218,7 +288,6 @@ int main() {
   glGenBuffers(1, &EBO);
   glGenBuffers(1, &normals);
 
-  // Configure VAO
   glBindVertexArray(VAO);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -246,40 +315,35 @@ int main() {
   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
   glEnableVertexAttribArray(2);
 
+  unsigned int VAO_stencil, VBO_stencil;
+  create_reflective_surface_stencil(&VAO_stencil, &VBO_stencil);
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
-  // Setup Platform/Renderer bindings
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
-
-  // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
-  while (!glfwWindowShouldClose(window)) {
+  bool enable_reflection = true;
 
+  while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-
     struct timespec time;
-
     clock_gettime(CLOCK_MONOTONIC, &time);
-
     double currentTime = time.tv_sec + time.tv_nsec / 1000000000.0f;
 
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    // create transformations
+    // Create transformations
     mat4 model, view, projection;
-
     glm_mat4_identity(model);
     glm_mat4_identity(view);
     glm_mat4_identity(projection);
 
-    // vec3 eye = {3 * cos(currentTime), 0.0f, 3 * sin(currentTime)};
     vec3 eye = {3.0f, 3.0f, -8.0f};
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
@@ -287,30 +351,24 @@ int main() {
     vec3 lightPos = {2.78f, 5.48f, 2.796f};
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
     vec3 lightDir;
-    glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
-    float lightCutoffAngle = cos(0.2618f);              // 15 degrees => around 0.2618 radians
-    float lightOuterCutoffAngle = cos(1.04f);           // 60 degrees
-    // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
-    // glm_rotate(model, glm_rad(-55.0f), (vec3){1.0f, 0.0f, 0.0f});
+    glm_vec3_negate_to(up, lightDir);
+    float lightCutoffAngle = cos(0.2618f);
+    float lightOuterCutoffAngle = cos(1.04f);
 
-    // view = translate(view, vec3(0.0, 0.0, -3.0));
     glm_look(eye, dir, up, view);
-
-    // projection = perspective(radians(45.0f), aspect, near, far)
     glm_perspective(glm_rad(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f,
                     100.0f, projection);
 
     unsigned int &shaderProgram = SHADERS[selected_shader].program;
 
+    // First pass: Draw scene normally
     glUseProgram(shaderProgram);
 
-    // set uniforms
     unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
     unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-    unsigned int projectionLoc =
-        glGetUniformLocation(shaderProgram, "projection");
+    unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projection[0][0]);
     unsigned int viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
     glUniform3fv(viewPosLoc, 1, eye);
@@ -324,8 +382,92 @@ int main() {
     glUniform1f(lightCutoffAngleLoc, lightCutoffAngle);
     unsigned int lightOuterCutoffAngleLoc = glGetUniformLocation(shaderProgram, "lightOuterCutoffAngle");
     glUniform1f(lightOuterCutoffAngleLoc, lightOuterCutoffAngle);
+    
+    // Disable clipping for normal scene rendering
+    unsigned int useClippingLoc = glGetUniformLocation(shaderProgram, "useClipping");
+    glUniform1i(useClippingLoc, 0);
+
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
+
+    // Second pass: Create reflection if enabled
+    if (enable_reflection) {
+      // Step 1: Mark stencil buffer where mirror surface is visible
+      glStencilFunc(GL_ALWAYS, 1, 0xFF);      
+      glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); 
+      glStencilMask(0xFF);                     
+      glDepthMask(GL_FALSE);                  
+      glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); 
+
+      // Draw mirror quad (writes to stencil only)
+      glBindVertexArray(VAO_stencil);
+      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);   
+
+      // Restore write masks
+      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);   
+      glDepthMask(GL_TRUE);     
+
+      // Compute reflected view and light
+      vec3 reflected_eye, reflected_dir, reflected_up;
+      mat4 reflected_view;
+
+      reflect_point_across_plane(reflected_eye, eye, mirror_plane.point, mirror_plane.normal);
+      reflect_direction_across_plane(reflected_dir, dir, mirror_plane.normal);
+      reflect_direction_across_plane(reflected_up, up, mirror_plane.normal);
+
+      glm_look(reflected_eye, reflected_dir, reflected_up, reflected_view);
+
+      mat4 flip_matrix;
+      glm_mat4_identity(flip_matrix);
+      flip_matrix[0][0] = -1.0f;
+      glm_mat4_mul(flip_matrix, reflected_view, reflected_view);
+
+      vec3 reflected_light_pos;
+      reflect_point_across_plane(reflected_light_pos, lightPos, mirror_plane.point, mirror_plane.normal);
+
+      // Set up clip plane
+      glEnable(GL_CLIP_DISTANCE0);
+      glUniform1i(useClippingLoc, 1);
+
+      vec4 world_clip_plane;
+      world_clip_plane[0] = mirror_plane.normal[0];  
+      world_clip_plane[1] = mirror_plane.normal[1];  
+      world_clip_plane[2] = mirror_plane.normal[2];  
+      world_clip_plane[3] = -(mirror_plane.normal[0] * mirror_plane.point[0] + 
+                              mirror_plane.normal[1] * mirror_plane.point[1] + 
+                              mirror_plane.normal[2] * mirror_plane.point[2]);
+
+      unsigned int world_clip_plane_loc = glGetUniformLocation(shaderProgram, "clipPlane");
+      glUniform4fv(world_clip_plane_loc, 1, world_clip_plane);
+
+      // Set reflection uniforms
+      glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &reflected_view[0][0]);
+      glUniform3fv(viewPosLoc, 1, reflected_eye);
+      glUniform3fv(lightPosLoc, 1, reflected_light_pos);
+
+      // Adjust face culling for mirrored geometry
+      glFrontFace(GL_CW);
+      glEnable(GL_CULL_FACE);
+
+      // Draw reflected scene inside stencil
+      glClear(GL_DEPTH_BUFFER_BIT);
+      glStencilFunc(GL_EQUAL, 1, 0xFF);
+      glStencilMask(0x00);
+
+      glBindVertexArray(VAO);
+      glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
+
+      // Restore OpenGL state
+      glDisable(GL_CLIP_DISTANCE0);
+      glDisable(GL_CULL_FACE);
+      glFrontFace(GL_CCW);
+      glStencilMask(0xFF);
+      glStencilFunc(GL_ALWAYS, 0, 0xFF);
+      glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
+      glUniform3fv(viewPosLoc, 1, eye);
+      glUniform3fv(lightPosLoc, 1, lightPos);
+      glUniform1i(useClippingLoc, 0);
+    }
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -333,6 +475,7 @@ int main() {
 
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
+    ImGui::Checkbox("Enable Reflection", &enable_reflection);
     ImGui::End();
 
     ImGui::Render();
