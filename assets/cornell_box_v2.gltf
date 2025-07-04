@@ -213,12 +213,12 @@
 		{
 			"mimeType":"image/jpeg",
 			"name":"brickwall_normal",
-			"uri":"brickwall_normal.jpg"
+			"uri":"textures/brickwall_normal.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"brickwall",
-			"uri":"brickwall.jpg"
+			"uri":"textures/brickwall.jpg"
 		}
 	],
 	"accessors":[
