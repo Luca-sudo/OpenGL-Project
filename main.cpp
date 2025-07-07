@@ -601,8 +601,6 @@ int main() {
       // Step 1: Mark stencil buffer where mirror surface is visible
       glStencilFunc(GL_ALWAYS, 1, 0xFF);      
       glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); 
-      glStencilMask(0xFF);                     
-      glDepthMask(GL_FALSE);                  
       glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); 
 
       // Draw mirror quad (writes to stencil only)
@@ -611,7 +609,6 @@ int main() {
 
       // Restore write masks
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);   
-      glDepthMask(GL_TRUE);     
 
       // Compute reflected view and light
       vec3 reflected_eye, reflected_dir, reflected_up;
