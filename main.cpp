@@ -356,7 +356,6 @@ int main() {
     {"Blinn-Phong", "shaders/blinn_phong.vert", "shaders/blinn_phong.frag"},
     {"Spotlight", "shaders/blinn_phong.vert", "shaders/spotlight.frag"},
     {"Texture", "shaders/texture.vert", "shaders/texture.frag"},
-    {"Reflection", "shaders/reflection.vert", "shaders/blinn_phong.frag"}
   };
 
   auto NUM_SHADERS = sizeof(SHADERS) / sizeof(SHADERS[0]);
@@ -519,7 +518,7 @@ int main() {
 
   vec3 lightPos = {2.78f, 5.48f, 2.796f};
 
-  bool enable_reflection = true;
+  bool enable_reflection = 0;
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -595,6 +594,8 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, normalMap);
 
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
+
+    // enable_reflection = (selected_shader == 6);
 
     // Second pass: Create reflection if enabled
     if (enable_reflection) {
@@ -679,6 +680,7 @@ int main() {
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
+    ImGui::Checkbox("Reflection", &enable_reflection);
     ImGui::End();
 
     ImGui::Render();

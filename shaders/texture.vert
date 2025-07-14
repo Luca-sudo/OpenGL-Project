@@ -16,6 +16,9 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform vec4 clipPlane; // Clipping plane in world space (ax + by + cz + d = 0)
+uniform bool useClipping;
+
 
 void main()
 {
@@ -25,7 +28,10 @@ void main()
     Normal = aNormal;
     TBN = mat3(vTangent, vBitangent, aNormal);
 
-
+    if (useClipping)
+        gl_ClipDistance[0] = dot(model * vec4(vPos, 1.0), clipPlane);
+    else
+        gl_ClipDistance[0] = 1.0; // Always keep it (positive means inside)
 
     Uv = vUv;
     
