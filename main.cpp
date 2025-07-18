@@ -92,56 +92,27 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-//TODO: Coalesce into one allocation.
+//TODO: This currently allocates 70 KB flat. Of course, this may be way too much.
+// Instead, a precise amount of memory should be allocated, but this requires aggregating information about the model.
 int allocate_model(model_t *model) {
-  model->indices = (unsigned int *)malloc(KB(10));
-  if (model->indices == NULL) {
-    printf("Failed to allocate memory for scene vertices.\n");
+  // Allocate one chunk of memory
+  char* data = (char *)malloc(KB(70));
+  if(data == NULL){
+    printf("Failed to allocate memory for Scene.\n");
     glfwTerminate();
     return -1;
   }
 
-  model->vertices = (aiVector3D*)malloc(KB(10));
-  if (model->vertices == NULL) {
-    printf("Failed to allocate buffer for vertices\n");
-    glfwTerminate();
-    return -1;
-  }
 
-  model->albedo = (aiColor4D*)malloc(KB(10));
-  if (model->albedo == NULL) {
-    printf("Failed to allocate buffer for albedo data\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  model->normals = (aiVector3D*)malloc(KB(10));
-  if (model->normals == NULL) {
-    printf("Failed to allocate buffer for normals\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  model->uvs = (aiVector2D*)malloc(KB(10));
-  if (model->uvs == NULL) {
-    printf("Failed to allocate buffer for normals\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  model->tangents = (aiVector3D*)malloc(KB(10));
-  if (model->tangents == NULL) {
-    printf("Failed to allocate buffer for tangents\n");
-    glfwTerminate();
-    return -1;
-  }
-
-  model->bitangents = (aiVector3D*)malloc(KB(10));
-  if (model->bitangents == NULL) {
-    printf("Failed to allocate buffer for tangents\n");
-    glfwTerminate();
-    return -1;
-  }
+  // Index into the chunk at 10 KB offsets each.
+  // Therefore, each field gets 10 KB of memory.
+  model->indices = (unsigned int*) data;
+  model->vertices = (aiVector3D*) (data + KB(10));
+  model->albedo = (aiColor4D*) (data + KB(20));
+  model->normals = (aiVector3D*) (data + KB(30));
+  model->uvs = (aiVector2D*) (data + KB(40));
+  model->tangents = (aiVector3D*) (data + KB(50));
+  model->bitangents = (aiVector3D*) (data + KB(60));
 
   return 0;
 }
@@ -172,6 +143,9 @@ void extract_textures(model_t *model, const struct aiScene *scene){
   }
 }
 
+/**
+ * Loads all vertex data & indices from the .gltf file.
+ */
 void extract_indices(model_t *model, struct aiNode *node,
                      const struct aiScene *scene) {
   for (int meshIndex = 0; meshIndex < node->mNumMeshes; meshIndex++) {
@@ -230,12 +204,12 @@ void extract_indices(model_t *model, struct aiNode *node,
 void reflect_point_across_plane(vec3 result, vec3 point, vec3 plane_point, vec3 plane_normal) {
   vec3 n;
   glm_vec3_normalize_to(plane_normal, n);
-  
+
   vec3 to_point;
   glm_vec3_sub(point, plane_point, to_point);
-  
+
   float distance = glm_vec3_dot(to_point, n);
-  
+
   vec3 reflection_offset;
   glm_vec3_scale(n, 2.0f * distance, reflection_offset);
   glm_vec3_sub(point, reflection_offset, result);
@@ -266,7 +240,7 @@ void create_reflective_surface_stencil(unsigned int* VAO_stencil, unsigned int* 
     stencil_vertices[j + 1] = center_point[1] + scale * (original_vertices[j + 1] - center_point[1]);
     stencil_vertices[j + 2] = center_point[2] + scale * (original_vertices[j + 2] - center_point[2]);
   }
-  
+
   unsigned int stencil_indices[] = {
     0, 1, 2,
     2, 3, 0
@@ -293,6 +267,10 @@ const unsigned int SCR_WIDTH = 1200;
 const unsigned int SCR_HEIGHT = 900;
 
 int main() {
+
+  /////////////////////////
+  // GLFW Initialization //
+  /////////////////////////
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -329,6 +307,10 @@ int main() {
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+  ///////////////////
+  // Scene loading //
+  ///////////////////
+
   const C_STRUCT aiScene *scene = aiImportFile(
       "assets/cornell_box_v2.gltf", aiProcessPreset_TargetRealtime_MaxQuality | aiProcess_CalcTangentSpace);
 
@@ -360,6 +342,10 @@ int main() {
     {3.440f, 1.650f, 2.714f},
     {-0.296f, 0.000f, -0.955f}
   };
+
+  ////////////////////
+  // Shader loading //
+  ////////////////////
 
   int selected_shader = 5;
   ShaderDeclaration SHADERS[] = {
@@ -405,6 +391,10 @@ int main() {
     SHADER_NAMES[i] = SHADERS[i].name;
   }
 
+  ///////////////////////////////////////
+  // VAO & VBO Creation and Population //
+  ///////////////////////////////////////
+
   unsigned int VAO;
   unsigned int vertexBuffers[7] = {0};
 
@@ -419,7 +409,6 @@ int main() {
   unsigned int &tangents = vertexBuffers[5];
   unsigned int &bitangents = vertexBuffers[6];
 
-  // Configure VAO
   glBindVertexArray(VAO);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -465,7 +454,10 @@ int main() {
   glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(aiVector3D), (void *)0);
   glEnableVertexAttribArray(5);
 
-  // Configuring the sampler, loading & configuring texture.
+  ////////////////////////////
+  // Setup diffuse texture  //
+  ////////////////////////////
+
   glBindTexture(GL_TEXTURE_2D, diffuseMap);
 
   int width, height, nrComponents;
@@ -491,6 +483,10 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   }
   free(textureData);
+
+  //////////////////////////
+  // Setup normal texture //
+  //////////////////////////
 
   glBindTexture(GL_TEXTURE_2D, normalMap);
 
@@ -558,10 +554,7 @@ int main() {
     glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
     float lightCutoffAngle = cos(0.2618f);              // 15 degrees => around 0.2618 radians
     float lightOuterCutoffAngle = cos(1.04f);           // 60 degrees
-    // model = rotate(model, radians(-55.0f), vec3(1.0, 0.0, 0.0));
-    // glm_rotate(model, glm_rad(-25.0f), (vec3){0.0f, 1.0f, 0.0f});
 
-    // view = translate(view, vec3(0.0, 0.0, -3.0));
     glm_look(eye, dir, up, view);
     glm_perspective(glm_rad(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f,
                     100.0f, projection);
@@ -607,8 +600,6 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, normalMap);
 
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
-
-    // enable_reflection = (selected_shader == 6);
 
     // Second pass: Create reflection if enabled
     if (enable_reflection) {
