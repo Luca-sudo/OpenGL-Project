@@ -53,6 +53,10 @@ typedef struct {
   vec3 normal;   // Plane normal (should point towards the viewer)
 } reflection_plane_t;
 
+/**
+ * Checks if the shader compiled properly. Throws an error and terminates the program otherwise.
+ * Helpful because Open-GL does not report these errors.
+ */
 void check_shader_compiling(unsigned int shader) {
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -65,6 +69,9 @@ void check_shader_compiling(unsigned int shader) {
     }
 }
 
+/**
+ * Checks if the shader linked properly. Throws an error and terminates the program otherwise.
+ */
 void check_shader_linking(unsigned int shader) {
     GLint success;
     glGetShaderiv(shader, GL_LINK_STATUS, &success);
@@ -78,6 +85,9 @@ void check_shader_linking(unsigned int shader) {
 
 }
 
+/**
+ * Allows resizing of the window. Otherwise the window dimension would not match that of the framebuffer.
+ */
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
@@ -137,6 +147,9 @@ int allocate_model(model_t *model) {
 }
 
 
+/*
+** Fetch normal and diffuse maps from the model.
+ */
 void extract_textures(model_t *model, const struct aiScene *scene){
   for(int i = 0; i < scene->mNumMaterials; i++){
     aiMaterial* mat = scene->mMaterials[i];
