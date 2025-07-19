@@ -1013,8 +1013,25 @@ int main() {
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
-    ImGui::Checkbox("Enable Reflection", &enable_reflection);
-    ImGui::Checkbox("Enable Shadows", &enable_shadows);
+    bool temp_reflection = enable_reflection;
+    bool temp_shadows = enable_shadows;
+    if (ImGui::Checkbox("Enable Reflection", &temp_reflection)) {
+        if (temp_reflection) {
+            enable_reflection = true;
+            enable_shadows = false;
+        } else {
+            enable_reflection = false;
+        }
+    }
+
+    if (ImGui::Checkbox("Enable Shadows", &temp_shadows)) {
+        if (temp_shadows) {
+            enable_shadows = true;
+            enable_reflection = false;
+        } else {
+            enable_shadows = false;
+        }
+    }
     if (enable_shadows) {
       ImGui::SliderFloat("Shadow Bias", &shadowBias, 0.0f, 0.3f);
     }
