@@ -551,6 +551,8 @@ int main() {
 
     vec3 lightColor = {1.0f, 1.0f, 1.0f};
     vec3 lightDir;
+
+    // Used for spotlight
     glm_vec3_negate_to(up, lightDir);                   // lightDirection = down
     float lightCutoffAngle = cos(0.2618f);              // 15 degrees => around 0.2618 radians
     float lightOuterCutoffAngle = cos(1.04f);           // 60 degrees
@@ -601,7 +603,12 @@ int main() {
 
     glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
 
-    // Second pass: Create reflection if enabled
+
+
+    /////////////////////////////////
+    // Reflection Pass, if enabled //
+    /////////////////////////////////
+
     if (enable_reflection) {
       // Step 1: Mark stencil buffer where mirror surface is visible
       glStencilFunc(GL_ALWAYS, 1, 0xFF);      
