@@ -13,7 +13,32 @@ uniform vec3 lightColor;
 uniform sampler2D diffuseMap;
 uniform sampler2D normalMap;
 
+uniform bool enable_shadows;
+uniform float far_plane;
+uniform samplerCube shadowMap;
+uniform float shadowBias;
+
 out vec4 FragColor;
+
+// Function to calculate shadow factor from cubemap
+float ShadowCalculation(vec3 fragPos) {
+    // Get vector between fragment position and light position
+    vec3 fragToLight = fragPos - lightPos;
+    
+    // Use the fragment to light vector to sample from the depth map    
+    float closestDepth = texture(shadowMap, fragToLight).r;
+    
+    // It is currently in linear range between [0,1]. Re-transform back to original depth value
+    closestDepth *= far_plane;
+    
+    // Get current linear depth as the length between the fragment and light position
+    float currentDepth = length(fragToLight);
+    
+    // Check whether current frag pos is in shadow
+    float shadow = currentDepth - shadowBias > closestDepth ? 1.0 : 0.0;
+    
+    return shadow;
+}
 
 void main()
 {
@@ -25,6 +50,13 @@ void main()
         vec3 modelNormal = texture(normalMap, Uv).rgb * 2.0 - 1.0;
         normal = TBN * modelNormal;
     }
+
+    // Calculate shadow
+    float shadow = 0;
+    if(enable_shadows){
+        shadow = ShadowCalculation(FragPos);
+    } 
+    
 
     // ambient
     float ambientStrength = 0.2;
@@ -42,6 +74,6 @@ void main()
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor;
-    vec3 result = text * (ambient + diffuse + specular) * albedo.rgb;
+    vec3 result = text * (ambient + (diffuse + specular) * (1.0 - shadow)) * albedo.rgb;
     FragColor = vec4(result, 1.0);
 }
