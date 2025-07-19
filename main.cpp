@@ -201,6 +201,10 @@ void extract_indices(model_t *model, struct aiNode *node,
   }
 }
 
+//////////////////////////
+// Reflection Functions //
+//////////////////////////
+
 void reflect_point_across_plane(vec3 result, vec3 point, vec3 plane_point, vec3 plane_normal) {
   vec3 n;
   glm_vec3_normalize_to(plane_normal, n);
@@ -376,6 +380,8 @@ int main() {
     glCompileShader(fragShader);
 
     check_shader_compiling(fragShader);
+
+
 
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
