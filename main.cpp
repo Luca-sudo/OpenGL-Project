@@ -381,8 +381,6 @@ int main() {
 
     check_shader_compiling(fragShader);
 
-
-
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragShader);
@@ -396,6 +394,69 @@ int main() {
     SHADERS[i].program = shaderProgram;
     SHADER_NAMES[i] = SHADERS[i].name;
   }
+
+  ////////////////////////////
+  // Shadow mapping shaders //
+  ////////////////////////////
+  
+  unsigned int shadowMapShader;
+  unsigned int vertexShader, geomShader, fragShader;
+  
+  // SHADOW MAPPING: Shadow depth vertex shader
+  vertexShader = glCreateShader(GL_VERTEX_SHADER);
+  char *shadowVertShaderCode = read_shader_from_file("shaders/depth_shader.vert");
+  glShaderSource(vertexShader, 1, (const char *const *)&shadowVertShaderCode, NULL);
+  glCompileShader(vertexShader);
+  // Check for compilation errors
+  int success;
+  char infoLog[512];
+  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+  if(!success) {
+    glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+    printf("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+  }
+  
+  // SHADOW MAPPING: Shadow depth geometry shader
+  geomShader = glCreateShader(GL_GEOMETRY_SHADER);
+  char *shadowGeomShaderCode = read_shader_from_file("shaders/depth_shader.geom");
+  glShaderSource(geomShader, 1, (const char *const *)&shadowGeomShaderCode, NULL);
+  glCompileShader(geomShader);
+  // Check for compilation errors
+  glGetShaderiv(geomShader, GL_COMPILE_STATUS, &success);
+  if(!success) {
+    glGetShaderInfoLog(geomShader, 512, NULL, infoLog);
+    printf("ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n%s\n", infoLog);
+  }
+  
+  // SHADOW MAPPING: Shadow depth fragment shader
+  fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+  char *shadowFragShaderCode = read_shader_from_file("shaders/depth_shader.frag");
+  glShaderSource(fragShader, 1, (const char *const *)&shadowFragShaderCode, NULL);
+  glCompileShader(fragShader);
+  // Check for compilation errors
+  glGetShaderiv(fragShader, GL_COMPILE_STATUS, &success);
+  if(!success) {
+    glGetShaderInfoLog(fragShader, 512, NULL, infoLog);
+    printf("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
+  }
+  
+  // SHADOW MAPPING: Link shadow mapping shader program
+  shadowMapShader = glCreateProgram();
+  glAttachShader(shadowMapShader, vertexShader);
+  glAttachShader(shadowMapShader, geomShader);
+  glAttachShader(shadowMapShader, fragShader);
+  glLinkProgram(shadowMapShader);
+  // Check for linking errors
+  glGetProgramiv(shadowMapShader, GL_LINK_STATUS, &success);
+  if(!success) {
+    glGetProgramInfoLog(shadowMapShader, 512, NULL, infoLog);
+    printf("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
+  }
+  
+  glDeleteShader(vertexShader);
+  glDeleteShader(geomShader);
+  glDeleteShader(fragShader);
+
 
   ///////////////////////////////////////
   // VAO & VBO Creation and Population //
@@ -523,6 +584,58 @@ int main() {
   unsigned int VAO_stencil, VBO_stencil;
   create_reflective_surface_stencil(&VAO_stencil, &VBO_stencil);
 
+  ////////////////////////////////////////
+  // Shadow mapping Cube map generation //
+  ////////////////////////////////////////
+
+  // SHADOW MAPPING: Set up depth cubemap for point shadows
+  const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+  float aspect = (float)SHADOW_WIDTH/(float)SHADOW_HEIGHT;
+  float near_plane = 0.1f;
+  float far_plane = 25.0f;
+  
+  // SHADOW MAPPING: Create depth cubemap framebuffer object
+  unsigned int depthMapFBO;
+  glGenFramebuffers(1, &depthMapFBO);
+  
+  // SHADOW MAPPING: Create depth cubemap texture
+  unsigned int depthCubeMap;
+  glGenTextures(1, &depthCubeMap);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubeMap);
+  
+  for (unsigned int i = 0; i < 6; ++i) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
+                 SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+  }
+  
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+  
+  // SHADOW MAPPING: Attach depth texture as FBO's depth buffer
+  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubeMap, 0);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    printf("Framebuffer not complete!\n");
+  }
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  
+  // SHADOW MAPPING: Setup shadow transform matrices for point light
+  mat4 shadowProj;
+  glm_perspective(glm_rad(90.0f), aspect, near_plane, far_plane, shadowProj);
+
+  // SHADOW MAPPING: Add a bias
+  float shadowBias = 0.05f;
+
+
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -534,6 +647,7 @@ int main() {
   vec3 lightPos = {2.78f, 5.48f, 2.796f};
 
   bool enable_reflection = 0;
+  bool enable_shadows = 0;
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -697,7 +811,8 @@ int main() {
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
-    ImGui::Checkbox("Reflection", &enable_reflection);
+    ImGui::Checkbox("Enable Reflection", &enable_reflection);
+    ImGui::Checkbox("Enable Shadows", &enable_shadows);
     ImGui::End();
 
     ImGui::Render();
