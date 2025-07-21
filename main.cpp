@@ -880,6 +880,7 @@ int main() {
       glEnable(GL_CLIP_DISTANCE0);
       glUniform1i(useClippingLoc, 1);
 
+      // Clipping plane must be 4d vector [a, b, c, d] such that (ax + by + cz + d = 0)
       vec4 world_clip_plane;
       world_clip_plane[0] = mirror_plane.normal[0];  
       world_clip_plane[1] = mirror_plane.normal[1];  
@@ -890,92 +891,6 @@ int main() {
 
       unsigned int world_clip_plane_loc = glGetUniformLocation(shaderProgram, "clipPlane");
       glUniform4fv(world_clip_plane_loc, 1, world_clip_plane);
-
-      // SHADOW MAPPING: Render shadow map from reflected light position
-      if (enable_shadows) {
-          // Configure viewport for shadow rendering
-          glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-          glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-          glClear(GL_DEPTH_BUFFER_BIT);
-          
-          // Setup shadow transform matrices for reflected light
-          mat4 reflected_shadowMatrices[6];
-          
-          // Right
-          mat4 view1;
-          vec3 center1 = {reflected_light_pos[0] + 1.0f, reflected_light_pos[1], reflected_light_pos[2]};
-          vec3 up1 = {0.0f, -1.0f, 0.0f};
-          glm_lookat(reflected_light_pos, center1, up1, view1);
-          glm_mat4_mul(shadowProj, view1, reflected_shadowMatrices[0]);
-          
-          // Left
-          mat4 view2;
-          vec3 center2 = {reflected_light_pos[0] - 1.0f, reflected_light_pos[1], reflected_light_pos[2]};
-          vec3 up2 = {0.0f, -1.0f, 0.0f};
-          glm_lookat(reflected_light_pos, center2, up2, view2);
-          glm_mat4_mul(shadowProj, view2, reflected_shadowMatrices[1]);
-          
-          // Top
-          mat4 view3;
-          vec3 center3 = {reflected_light_pos[0], reflected_light_pos[1] + 1.0f, reflected_light_pos[2]};
-          vec3 up3 = {0.0f, 0.0f, 1.0f};
-          glm_lookat(reflected_light_pos, center3, up3, view3);
-          glm_mat4_mul(shadowProj, view3, reflected_shadowMatrices[2]);
-          
-          // Bottom
-          mat4 view4;
-          vec3 center4 = {reflected_light_pos[0], reflected_light_pos[1] - 1.0f, reflected_light_pos[2]};
-          vec3 up4 = {0.0f, 0.0f, -1.0f};
-          glm_lookat(reflected_light_pos, center4, up4, view4);
-          glm_mat4_mul(shadowProj, view4, reflected_shadowMatrices[3]);
-          
-          // Back
-          mat4 view5;
-          vec3 center5 = {reflected_light_pos[0], reflected_light_pos[1], reflected_light_pos[2] + 1.0f};
-          vec3 up5 = {0.0f, -1.0f, 0.0f};
-          glm_lookat(reflected_light_pos, center5, up5, view5);
-          glm_mat4_mul(shadowProj, view5, reflected_shadowMatrices[4]);
-          
-          // Front
-          mat4 view6;
-          vec3 center6 = {reflected_light_pos[0], reflected_light_pos[1], reflected_light_pos[2] - 1.0f};
-          vec3 up6 = {0.0f, -1.0f, 0.0f};
-          glm_lookat(reflected_light_pos, center6, up6, view6);
-          glm_mat4_mul(shadowProj, view6, reflected_shadowMatrices[5]);
-          
-          // Render scene to depth cubemap from reflected light position
-          glUseProgram(shadowMapShader);
-          
-          // Set model matrix
-          mat4 model;
-          glm_mat4_identity(model);
-          unsigned int modelLoc = glGetUniformLocation(shadowMapShader, "model");
-          glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-          
-          // Set reflected shadow matrices
-          for (unsigned int i = 0; i < 6; ++i) {
-              char name[32];
-              sprintf(name, "shadowMatrices[%d]", i);
-              unsigned int shadowMatricesLoc = glGetUniformLocation(shadowMapShader, name);
-              glUniformMatrix4fv(shadowMatricesLoc, 1, GL_FALSE, &reflected_shadowMatrices[i][0][0]);
-          }
-          
-          // Set reflected light position and far plane
-          unsigned int lightPosLoc = glGetUniformLocation(shadowMapShader, "lightPos");
-          glUniform3fv(lightPosLoc, 1, reflected_light_pos);
-          unsigned int farPlaneLoc = glGetUniformLocation(shadowMapShader, "far_plane");
-          glUniform1f(farPlaneLoc, far_plane);
-
-          glBindVertexArray(VAO);
-          glDrawElements(GL_TRIANGLES, cornellBox.indexOffset, GL_UNSIGNED_INT, 0);
-          glBindFramebuffer(GL_FRAMEBUFFER, 0);
-          
-          // Reset viewport
-          glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-          
-          // Switch back to main shader for reflection rendering
-          glUseProgram(shaderProgram);
-      }
 
       // Set reflection uniforms
       glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &reflected_view[0][0]);
@@ -1015,6 +930,7 @@ int main() {
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
     bool temp_reflection = enable_reflection;
     bool temp_shadows = enable_shadows;
+    
     if (ImGui::Checkbox("Enable Reflection", &temp_reflection)) {
         if (temp_reflection) {
             enable_reflection = true;
