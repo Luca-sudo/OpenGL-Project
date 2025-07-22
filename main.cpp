@@ -92,6 +92,15 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
   glViewport(0, 0, width, height);
 }
 
+/**
+ * Frees the allocated storage for the model.
+ * Since one chunk is allocated, starting at model->indices, it suffices to free that.
+ */
+void free_model(model_t &model) {
+  free(model.indices);
+}
+
+
 //TODO: This currently allocates 70 KB flat. Of course, this may be way too much.
 // Instead, a precise amount of memory should be allocated, but this requires aggregating information about the model.
 int allocate_model(model_t *model) {
@@ -964,11 +973,7 @@ int main() {
   ImGui::DestroyContext();
 
   glfwTerminate();
-  free(cornellBox.albedo);
-  free(cornellBox.normals);
-  free(cornellBox.vertices);
-  free(cornellBox.indices);
-  free(cornellBox.uvs);
+  free_model(cornellBox);
 
   return 0;
 }
