@@ -50,10 +50,10 @@ void main()
     vec3 diffuse = diff * lightColor;
     
     // specular
-    float specularStrength = 0.5;
+    float specularStrength = 0.3;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 64);
+    float spec = pow(max(dot(norm, halfwayDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor;  
 
     // Calculate shadow
