@@ -72,7 +72,7 @@ void main()
     float specularStrength = 0.5;
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(viewDir, halfwayDir), 0.0), 16);
+    float spec = pow(max(dot(norm, halfwayDir), 0.0), 16);
     vec3 specular = specularStrength * spec * lightColor;
     vec3 result = text * (ambient + (diffuse + specular) * (1.0 - shadow)) * albedo.rgb;
     FragColor = vec4(result, 1.0);
