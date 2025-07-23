@@ -139,6 +139,8 @@ void extract_textures(model_t *model, const struct aiScene *scene){
     for(unsigned int j = 0; j < normalMapCount; j++){
       aiString path;
       mat->GetTexture(aiTextureType_NORMALS, 0, &path);
+      // The texture path has to be prefixed with "./",
+      // because the path is relative. Otherwise throws an error.
       model->normalMapPath = std::string("./") + std::string(path.C_Str());
     }
 
@@ -157,12 +159,17 @@ void extract_textures(model_t *model, const struct aiScene *scene){
  */
 void extract_indices(model_t *model, struct aiNode *node,
                      const struct aiScene *scene) {
+  // Iterate over every mesh in the model.
+  // What constitutes a mesh depends on how the model was constructed in Blender, for example.
   for (int meshIndex = 0; meshIndex < node->mNumMeshes; meshIndex++) {
     unsigned int meshId = node->mMeshes[meshIndex];
     unsigned int materialId = scene->mMeshes[meshId]->mMaterialIndex;
+    // Faces are the triangles of our mesh.
     for (int faceIdx = 0; faceIdx < scene->mMeshes[meshId]->mNumFaces;
          faceIdx++) {
       struct aiFace face = scene->mMeshes[meshId]->mFaces[faceIdx];
+      // Store only the associated index for now.
+      // A later pass will extract the vertex data.
       for (int i = 0; i < face.mNumIndices; i++) {
         model->indices[model->indexOffset + i] =
             face.mIndices[i] + (model->vertexOffset);
@@ -182,13 +189,15 @@ void extract_indices(model_t *model, struct aiNode *node,
     aiGetMaterialTexture(scene->mMaterials[materialId], aiTextureType_NORMALS, 0, &str);
 
 
+    // This pass extracts the concrete vertex data.
+    // This comprises: position, color, normals, uvs, tangents, bitangents.
     for (int vertexIdx = 0; vertexIdx < scene->mMeshes[meshId]->mNumVertices;
          vertexIdx++) {
       model->vertices[model->vertexOffset + vertexIdx] =
           scene->mMeshes[meshId]->mVertices[vertexIdx];
       model->albedo[model->vertexOffset + vertexIdx] = albedo;
       model->normals[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mNormals[vertexIdx];
-      // Does the mesh contain vertex coordinates?
+      // Does the mesh contain vertex coordinates? I.e. is this mesh textured at all?
       if(scene->mMeshes[meshId]->mTextureCoords[0]){
         aiVector2D uv;
         uv.x = scene->mMeshes[meshId]->mTextureCoords[0][vertexIdx].x;
@@ -197,6 +206,8 @@ void extract_indices(model_t *model, struct aiNode *node,
         model->tangents[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mTangents[vertexIdx];
         model->bitangents[model->vertexOffset + vertexIdx] = scene->mMeshes[meshId]->mBitangents[vertexIdx];
       }else {
+        // Since we don't separate rendering of un-textured and textured meshes,
+        // we have to provide a designated uv value that our shader can detect.
         model->uvs[model->vertexOffset + vertexIdx] = (aiVector2D){-1.0f, -1.0f};
         model->tangents[model->vertexOffset + vertexIdx] = (aiVector3D){0.0f, 0.0f, 0.0f};
       }
@@ -205,6 +216,9 @@ void extract_indices(model_t *model, struct aiNode *node,
     model->vertexOffset += scene->mMeshes[meshId]->mNumVertices;
   }
 
+  // Because assimp's aiScene has a graph structure,
+  // there may be child nodes that describe missing parts of the scene.
+  // Therefore, also recurse into these and extract.
   for (int childIdx = 0; childIdx < node->mNumChildren; childIdx++) {
     extract_indices(model, node->mChildren[childIdx], scene);
   }
@@ -361,6 +375,8 @@ int main() {
   ////////////////////
 
   int selected_shader = 5;
+  // If a shader should be added to the UI dropdown, then add an entry here.
+  // Specify (display name, .vert path, .frag path)
   ShaderDeclaration SHADERS[] = {
     {"Flat", "shaders/flat.vert", "shaders/flat.frag"},
     {"Lambertian", "shaders/lambertian.vert", "shaders/lambertian.frag"},
@@ -374,6 +390,7 @@ int main() {
   const char* SHADER_NAMES[NUM_SHADERS];
   std::cout << "Nr. of shaders: " << NUM_SHADERS << std::endl;
 
+  // This generates the shader for all the ones defined in SHADERS.
   for(int i = 0; i < NUM_SHADERS; i++){
     unsigned int vertexShader, fragShader, shaderProgram;
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -475,8 +492,9 @@ int main() {
   unsigned int vertexBuffers[7] = {0};
 
   glGenVertexArrays(1, &VAO);
-  glGenBuffers(7, vertexBuffers);
 
+  // Generate 7 VBOs and create references to them.
+  glGenBuffers(7, vertexBuffers);
   unsigned int &EBO = vertexBuffers[0];
   unsigned int &positions = vertexBuffers[1];
   unsigned int &albedo = vertexBuffers[2];
@@ -553,6 +571,7 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, textureData);
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    // Setup sampling. I.e. wrapping and filtering.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -653,7 +672,7 @@ int main() {
   ImGui_ImplOpenGL3_Init("#version 330");
   ImGui::StyleColorsDark();
 
-  vec3 lightPos = {2.78f, 5.48f, 2.796f};
+  vec3 lightPos = {2.78f, 5.00f, 2.796f};
 
   bool enable_reflection = 0;
   bool enable_shadows = 1;
