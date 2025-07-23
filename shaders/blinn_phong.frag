@@ -54,7 +54,9 @@ void main()
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(norm, halfwayDir), 0.0), 16);
-    vec3 specular = specularStrength * spec * lightColor;  
+    // Multiply by diff to avoid 'specular light bleeding'.
+    // This way, specular light affects only surfaces with light on appropriate side.
+    vec3 specular = specularStrength * spec * lightColor * diff;
 
     // Calculate shadow
     float shadow = 0;
