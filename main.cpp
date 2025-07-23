@@ -641,8 +641,6 @@ int main() {
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
   
   // SHADOW MAPPING: Attach depth texture as FBO's depth buffer
   glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
@@ -923,7 +921,7 @@ int main() {
       // Set reflection uniforms
       glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &reflected_view[0][0]);
       glUniform3fv(viewPosLoc, 1, reflected_eye);
-      glUniform3fv(lightPosLoc, 1, reflected_light_pos);
+      // glUniform3fv(lightPosLoc, 1, reflected_light_pos);
 
       // Adjust face culling for mirrored geometry
       glFrontFace(GL_CW);
@@ -956,26 +954,8 @@ int main() {
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
-    bool temp_reflection = enable_reflection;
-    bool temp_shadows = enable_shadows;
-    
-    if (ImGui::Checkbox("Enable Reflection", &temp_reflection)) {
-        if (temp_reflection) {
-            enable_reflection = true;
-            enable_shadows = false;
-        } else {
-            enable_reflection = false;
-        }
-    }
-
-    if (ImGui::Checkbox("Enable Shadows", &temp_shadows)) {
-        if (temp_shadows) {
-            enable_shadows = true;
-            enable_reflection = false;
-        } else {
-            enable_shadows = false;
-        }
-    }
+    ImGui::Checkbox("Enable Reflection", &enable_reflection);
+    ImGui::Checkbox("Enable Shadows", &enable_shadows);
     if (enable_shadows) {
       ImGui::SliderFloat("Shadow Bias", &shadowBias, 0.0f, 0.3f);
     }
