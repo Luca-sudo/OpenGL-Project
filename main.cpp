@@ -675,6 +675,10 @@ int main() {
   bool enable_reflection = 0;
   bool enable_shadows = 1;
 
+  float xPos = 3.0f;
+  float yPos = 3.0f;
+  float zPos = -8.0f;
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -691,7 +695,7 @@ int main() {
     glm_mat4_identity(view);
     glm_mat4_identity(projection);
 
-    vec3 eye = {3.0f, 3.0f, -8.0f};
+    vec3 eye = {xPos, yPos, zPos};
     vec3 up = {0.0f, 1.0f, 0.0f};
     vec3 dir = {0.0f, 0.0f, 1.0f};
 
@@ -891,7 +895,9 @@ int main() {
       reflect_point_across_plane(reflected_eye, eye, mirror_plane.point, mirror_plane.normal);
       reflect_direction_across_plane(reflected_dir, dir, mirror_plane.normal);
       reflect_direction_across_plane(reflected_up, up, mirror_plane.normal);
+      
 
+      // VERSION 1. FLIP
       glm_look(reflected_eye, reflected_dir, reflected_up, reflected_view);
 
       mat4 flip_matrix;
@@ -954,6 +960,9 @@ int main() {
     ImGui::Begin("Demo window");
     ImGui::Combo("Select a shader!", &selected_shader, SHADER_NAMES, IM_ARRAYSIZE(SHADER_NAMES));
     ImGui::SliderFloat("Light Position", &lightPos[1], 0.0f, 10.0f);
+    ImGui::SliderFloat("X Position", &xPos, 0.0f, 5.0f);
+    ImGui::SliderFloat("Y Position", &yPos, 0.0f, 5.0f);
+    ImGui::SliderFloat("Z Position", &zPos, -8.0f, 5.0f);
     ImGui::Checkbox("Enable Reflection", &enable_reflection);
     ImGui::Checkbox("Enable Shadows", &enable_shadows);
     if (enable_shadows) {
