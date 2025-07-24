@@ -10,8 +10,4 @@ The following concepts should be covered:
 - shadow mapping
 
 ## To Do
-- Implement different rendering techniques
-  - spot lights
-  - texture mapping
-  - reflections
-  - shadows
+- enjoy
